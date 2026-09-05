@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sermontiny Montagens Industriais e Locações
 
-## Getting Started
+Aplicação web de produção com site institucional e painel administrativo para clientes, equipamentos, orçamentos, contratos, PDFs e WhatsApp.
 
-First, run the development server:
+O código vive neste diretório (`sermontiny-app`) por restrição de nome npm. Use esta pasta como raiz do projeto.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+- Next.js 16 (App Router) + TypeScript strict
+- Tailwind CSS + shadcn/ui + Lucide
+- Supabase (PostgreSQL, Auth, Storage, RLS)
+- React Hook Form + Zod
+- TanStack Table + Recharts
+- `@react-pdf/renderer` no servidor
+- Vitest, ESLint e Prettier
+
+## Arquitetura de pastas
+
+```text
+app/(public)             Site institucional
+app/admin                Login e painel protegido
+app/actions              Server Actions com permissão no backend
+app/api                  PDF e integrações
+app/d/[token]            Link temporário assinado para documentos
+components/public        Header, rodapé, formulários públicos
+components/admin         Shell, tabelas e formulários do painel
+lib/money.ts             Cálculos em centavos
+lib/extenso.ts           Valor por extenso em pt-BR
+lib/whatsapp             wa.me e Cloud API
+lib/pdf                  Geração de PDF
+supabase/migrations      Schema, RLS, numeração e storage
+supabase/seed.sql        Empresa, equipamentos, cláusulas e perfis
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Desenvolvimento local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd sermontiny-app
+cp .env.example .env.local
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Abra [http://localhost:3000](http://localhost:3000). O site público funciona sem banco; catálogo, formulário de contato e painel exigem Supabase.
 
-## Learn More
+Scripts:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Configurar Supabase
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Crie um projeto em [supabase.com](https://supabase.com).
+2. Em **Project Settings > API**, copie:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (somente servidor)
+3. No SQL Editor, execute nesta ordem:
+   - `supabase/migrations/0001_init.sql`
+   - `supabase/seed.sql`
+4. Authentication:
+   - Desative cadastro público.
+   - Crie o primeiro usuário (e-mail e senha) manualmente.
+   - Ajuste o e-mail em `supabase/seed_admin.sql` e execute o script.
+5. Storage: a migration cria os buckets `logos`, `equipment`, `certificates` e `documents`.
+6. Auth URL: adicione `http://localhost:3000/auth/callback` e a URL de produção.
 
-## Deploy on Vercel
+Administrador documentado:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- E-mail sugerido: `admin@sermontinymontagens.com.br`
+- Senha: definida por você no painel Auth do Supabase
+- O usuário só entra no `/admin` depois de `is_active = true` e perfil `administrator`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Não existe cadastro público de administradores.
+
+## WhatsApp
+
+### Modo simples (`wa_me`)
+
+Gera o PDF, grava no Storage, cria link temporário em `/d/{token}` e monta `https://wa.me/{numero}?text=...`. O WhatsApp Web **não anexa** o PDF automaticamente.
+
+### Modo API oficial (`cloud_api`)
+
+Configure somente no servidor:
+
+- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_BUSINESS_ACCOUNT_ID` (opcional)
+
+A escolha do provedor fica em **Admin > Configurações**. Tokens nunca são enviados ao navegador.
+
+## Publicar na Vercel
+
+1. Importe este repositório na Vercel, com root directory `sermontiny-app` se o git estiver na pasta pai.
+2. Defina as variáveis de `.env.example`.
+3. `NEXT_PUBLIC_SITE_URL` deve ser a URL pública, por exemplo `https://www.sermontinymontagens.com.br`.
+4. No Supabase, libere a URL de produção em Auth e CORS.
+5. Faça o deploy. O comando de build é `npm run build`.
+
+## Regras financeiras
+
+Valores monetários usam `bigint` em centavos no banco e inteiros no servidor. Alterar o preço atual de um equipamento cria histórico e **não** reescreve orçamentos antigos: cada item grava o unitário da época.
+
+O valor por extenso é testado em `tests/extenso.test.ts`.
+
+## Segurança
+
+- Middleware protege `/admin`
+- Permissões reais no banco (`has_permission`) e nas Server Actions
+- RLS em todas as tabelas
+- Exclusão lógica em dados operacionais
+- URLs de documento com token e expiração
+- Rate limit no login e no formulário público
+- Mensagens de erro genéricas ao cliente
+
+## Logo oficial
+
+O monograma `SM` é um marcador. Envie o logo oficial em **Admin > Configurações**. O arquivo vai para o bucket `logos`.
