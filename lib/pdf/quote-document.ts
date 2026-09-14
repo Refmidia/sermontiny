@@ -97,7 +97,7 @@ export function buildQuoteDocument(input: {
 }
 
 export async function withQuotePix(doc: QuoteDocumentModel): Promise<QuoteDocumentModel> {
-  const pix = await resolveQuotePix(doc.settings, doc.totalCents, doc.number);
+  const pix = await resolveQuotePix(doc.settings);
   if (!pix) return doc;
   return { ...doc, pixKeyLabel: pix.keyLabel, pixQrSrc: pix.qrDataUrl };
 }

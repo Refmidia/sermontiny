@@ -1,10 +1,25 @@
-import { isSupabaseConfigured, getSupabaseServiceEnv } from '@/lib/supabase/env';
-import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@supabase/supabase-js';
+import { isSupabaseConfigured, getSupabasePublicEnv, getSupabaseServiceEnv } from '@/lib/supabase/env';
 import type { Equipment } from '@/types/database';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
-async function loadPublicEquipment(client: SupabaseClient) {
+function createPublicReader() {
+  const service = getSupabaseServiceEnv();
+  const pub = getSupabasePublicEnv();
+  const env = service ?? pub;
+  if (!env) return null;
+  const key = service?.serviceRoleKey ?? pub?.anonKey;
+  if (!key) return null;
+  return createClient(env.url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+    },
+  });
+}
+
+async function loadPublicEquipment() {
+  const client = createPublicReader();
+  if (!client) return [];
   const { data, error } = await client
     .from('equipment')
     .select('*')
@@ -18,15 +33,7 @@ async function loadPublicEquipment(client: SupabaseClient) {
 export async function getPublicEquipment(): Promise<Equipment[]> {
   if (!isSupabaseConfigured()) return [];
   try {
-    const supabase = await createClient();
-    const rows = await loadPublicEquipment(supabase);
-    if (rows.length) return rows;
-  } catch {
-    // Fall through to the service-role client used on Vercel when anon read fails.
-  }
-  if (!getSupabaseServiceEnv()) return [];
-  try {
-    return await loadPublicEquipment(createAdminClient());
+    return await loadPublicEquipment();
   } catch {
     return [];
   }

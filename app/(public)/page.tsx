@@ -29,6 +29,8 @@ import { publicStorageUrl } from '@/lib/storage-url';
 import { commercialWhatsAppHref } from '@/lib/whatsapp-public';
 import { formatBRL } from '@/lib/money';
 
+export const dynamic = 'force-dynamic';
+
 const HOME_SERVICES = [
   'montagens-industriais',
   'fabricacao-estruturas-metalicas',

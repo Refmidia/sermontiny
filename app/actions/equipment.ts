@@ -13,9 +13,13 @@ import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
 const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
 
 function revalidateEquipment(id?: string) {
+  revalidatePath('/');
   revalidatePath('/admin/equipamentos');
   revalidatePath('/equipamentos');
-  if (id) revalidatePath(`/admin/equipamentos/${id}`);
+  if (id) {
+    revalidatePath(`/admin/equipamentos/${id}`);
+    revalidatePath('/equipamentos', 'layout');
+  }
 }
 
 function photoExtension(file: File) {
