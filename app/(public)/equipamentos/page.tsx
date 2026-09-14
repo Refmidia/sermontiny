@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { PageHero } from '@/components/public/page-hero';
 import { SiteContainer } from '@/components/public/site-container';
 import { SiteImage } from '@/components/public/site-image';
+import { featuredFleetCards } from '@/lib/content/home-fleet';
 import { getCompanySettings } from '@/lib/data/company';
 import { EQUIPMENT_STATUS_LABELS, getPublicEquipment } from '@/lib/data/equipment';
 import { publicStorageUrl } from '@/lib/storage-url';
@@ -18,6 +19,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function EquipmentCatalogPage() {
   const [settings, equipment] = await Promise.all([getCompanySettings(), getPublicEquipment()]);
+  const fallbackFleet = featuredFleetCards(equipment, (path) => publicStorageUrl('equipment', path));
 
   return (
     <>
@@ -29,10 +31,25 @@ export default async function EquipmentCatalogPage() {
       <section className="bg-paper py-16">
         <SiteContainer>
           {equipment.length === 0 ? (
-            <p className="rounded-[14px] bg-white p-10 text-center text-muted">
-              Nenhum equipamento público cadastrado no momento. A frota publicada no painel aparece automaticamente
-              nesta página.
-            </p>
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {fallbackFleet.map((item) => (
+                <Link key={item.name} href={item.href} className="overflow-hidden rounded-[14px] bg-white shadow-panel transition-transform hover:-translate-y-0.5">
+                  <SiteImage
+                    src={item.image}
+                    alt={item.alt}
+                    width={800}
+                    height={560}
+                    sizes="(max-width: 1280px) 50vw, 33vw"
+                    className="aspect-[4/3] w-full"
+                  />
+                  <div className="p-5">
+                    <h2 className="text-xl font-semibold text-navy">{item.name}</h2>
+                    <p className="mt-1 text-sm text-muted">{item.capacity}</p>
+                    <p className="mt-2 text-sm leading-6 text-muted">{item.description}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {equipment.map((item) => {

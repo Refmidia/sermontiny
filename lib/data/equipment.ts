@@ -1,11 +1,11 @@
-import { isSupabaseConfigured } from '@/lib/supabase/env';
+import { isSupabaseConfigured, getSupabaseServiceEnv } from '@/lib/supabase/env';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { Equipment } from '@/types/database';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-export async function getPublicEquipment(): Promise<Equipment[]> {
-  if (!isSupabaseConfigured()) return [];
-  const supabase = await createClient();
-  const { data, error } = await supabase
+async function loadPublicEquipment(client: SupabaseClient) {
+  const { data, error } = await client
     .from('equipment')
     .select('*')
     .is('deleted_at', null)
@@ -15,17 +15,26 @@ export async function getPublicEquipment(): Promise<Equipment[]> {
   return (data ?? []) as Equipment[];
 }
 
+export async function getPublicEquipment(): Promise<Equipment[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const supabase = await createClient();
+    const rows = await loadPublicEquipment(supabase);
+    if (rows.length) return rows;
+  } catch {
+    // Fall through to the service-role client used on Vercel when anon read fails.
+  }
+  if (!getSupabaseServiceEnv()) return [];
+  try {
+    return await loadPublicEquipment(createAdminClient());
+  } catch {
+    return [];
+  }
+}
+
 export async function getPublicEquipmentBySlug(slug: string): Promise<Equipment | null> {
-  if (!isSupabaseConfigured()) return null;
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('equipment')
-    .select('*')
-    .eq('slug', slug)
-    .eq('show_on_website', true)
-    .is('deleted_at', null)
-    .maybeSingle();
-  return (data as Equipment | null) ?? null;
+  const rows = await getPublicEquipment();
+  return rows.find((item) => item.slug === slug) ?? null;
 }
 
 export const EQUIPMENT_STATUS_LABELS = {

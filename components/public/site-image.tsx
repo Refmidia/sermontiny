@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export function SiteImage({
@@ -6,7 +5,6 @@ export function SiteImage({
   alt,
   width,
   height,
-  sizes,
   priority = false,
   className,
   fill = false,
@@ -15,33 +13,22 @@ export function SiteImage({
   alt: string;
   width?: number;
   height?: number;
-  sizes: string;
+  sizes?: string;
   priority?: boolean;
   className?: string;
   fill?: boolean;
 }) {
-  if (fill) {
-    return (
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        sizes={sizes}
-        priority={priority}
-        className={cn('object-cover', className)}
-      />
-    );
-  }
-
   return (
-    <Image
+    // Native img keeps PNG/WebP working on Vercel without the image optimizer.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={src}
       alt={alt}
-      width={width ?? 1200}
-      height={height ?? 800}
-      sizes={sizes}
-      priority={priority}
-      className={cn('object-cover', className)}
+      width={fill ? undefined : (width ?? 1200)}
+      height={fill ? undefined : (height ?? 800)}
+      decoding="async"
+      fetchPriority={priority ? 'high' : 'auto'}
+      className={cn(fill ? 'absolute inset-0 h-full w-full object-cover' : 'h-auto w-full object-cover', className)}
     />
   );
 }
