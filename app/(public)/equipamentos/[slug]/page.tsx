@@ -6,7 +6,7 @@ import { SiteContainer } from '@/components/public/site-container';
 import { SiteImage } from '@/components/public/site-image';
 import { getCompanySettings } from '@/lib/data/company';
 import { EQUIPMENT_STATUS_LABELS, getPublicEquipmentBySlug } from '@/lib/data/equipment';
-import { publicStorageUrl } from '@/lib/storage-url';
+import { equipmentPhotoSrc } from '@/lib/storage-url';
 import { equipmentFallbackImage } from '@/lib/content/public-media';
 import { formatBRL } from '@/lib/money';
 import { SITE, absoluteUrl } from '@/lib/site';
@@ -36,7 +36,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
   const { slug } = await params;
   const [item, settings] = await Promise.all([getPublicEquipmentBySlug(slug), getCompanySettings()]);
   if (!item) notFound();
-  const photo = publicStorageUrl('equipment', item.photo_path) ?? equipmentFallbackImage(item.slug);
+  const photo = equipmentPhotoSrc(item) ?? equipmentFallbackImage(item.slug);
 
   return (
     <div className="bg-white py-16">

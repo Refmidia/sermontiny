@@ -12,7 +12,7 @@ import { EquipmentStatusBadge, QuoteStatusBadge } from '@/components/admin/statu
 import { formatBRL } from '@/lib/money';
 import { formatDateTimeBr } from '@/lib/format';
 import { hasPermission } from '@/lib/permissions';
-import { publicStorageUrl } from '@/lib/storage-url';
+import { equipmentPhotoSrc } from '@/lib/storage-url';
 import type { Equipment, QuoteStatus } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +32,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
       .eq('equipment_id', id)
       .limit(30),
   ]);
-  const photo = publicStorageUrl('equipment', equipment.photo_path);
+  const photo = equipmentPhotoSrc(equipment);
 
   return (
     <div className="space-y-6">

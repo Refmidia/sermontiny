@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/admin/empty-state';
 import { SearchInput } from '@/components/admin/search-input';
 import { Button } from '@/components/ui/button';
 import { formatBRL } from '@/lib/money';
-import { publicStorageUrl } from '@/lib/storage-url';
+import { equipmentPhotoSrc } from '@/lib/storage-url';
 import type { Equipment } from '@/types/database';
 
 export function EquipmentCatalog({ data, initialQuery = '' }: { data: Equipment[]; initialQuery?: string }) {
@@ -55,7 +55,7 @@ export function EquipmentCatalog({ data, initialQuery = '' }: { data: Equipment[
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((item) => {
-                const photo = publicStorageUrl('equipment', item.photo_path);
+                const photo = equipmentPhotoSrc(item);
                 return (
                   <Link
                     key={item.id}

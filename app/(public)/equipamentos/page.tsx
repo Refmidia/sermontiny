@@ -6,7 +6,7 @@ import { SiteImage } from '@/components/public/site-image';
 import { featuredFleetCards } from '@/lib/content/home-fleet';
 import { getCompanySettings } from '@/lib/data/company';
 import { EQUIPMENT_STATUS_LABELS, getPublicEquipment } from '@/lib/data/equipment';
-import { publicStorageUrl } from '@/lib/storage-url';
+import { equipmentPhotoSrc } from '@/lib/storage-url';
 import { equipmentFallbackImage } from '@/lib/content/public-media';
 import { formatBRL } from '@/lib/money';
 
@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function EquipmentCatalogPage() {
   const [settings, equipment] = await Promise.all([getCompanySettings(), getPublicEquipment()]);
-  const fallbackFleet = featuredFleetCards(equipment, (path) => publicStorageUrl('equipment', path));
+  const fallbackFleet = featuredFleetCards(equipment, (item) => equipmentPhotoSrc(item));
 
   return (
     <>
@@ -53,7 +53,7 @@ export default async function EquipmentCatalogPage() {
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {equipment.map((item) => {
-                const photo = publicStorageUrl('equipment', item.photo_path) ?? equipmentFallbackImage(item.slug);
+                const photo = equipmentPhotoSrc(item) ?? equipmentFallbackImage(item.slug);
                 return (
                   <Link key={item.id} href={`/equipamentos/${item.slug}`} className="overflow-hidden rounded-[14px] bg-white shadow-panel transition-transform hover:-translate-y-0.5">
                     <SiteImage

@@ -25,7 +25,7 @@ import { featuredFleetCards } from '@/lib/content/home-fleet';
 import { SERVICES } from '@/lib/content/services';
 import { getCompanySettings } from '@/lib/data/company';
 import { getPublicEquipment } from '@/lib/data/equipment';
-import { publicStorageUrl } from '@/lib/storage-url';
+import { equipmentPhotoSrc } from '@/lib/storage-url';
 import { commercialWhatsAppHref } from '@/lib/whatsapp-public';
 import { formatBRL } from '@/lib/money';
 
@@ -42,7 +42,7 @@ const HOME_SERVICES = [
 
 export default async function HomePage() {
   const [settings, equipment] = await Promise.all([getCompanySettings(), getPublicEquipment()]);
-  const fleet = featuredFleetCards(equipment, (path) => publicStorageUrl('equipment', path));
+  const fleet = featuredFleetCards(equipment, (item) => equipmentPhotoSrc(item));
   const whatsappHref = commercialWhatsAppHref(settings.whatsapp);
 
   return (

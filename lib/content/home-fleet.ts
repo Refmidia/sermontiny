@@ -52,14 +52,17 @@ const FEATURED: Array<{
   },
 ];
 
-export function featuredFleetCards(equipment: Equipment[], photoUrl: (path: string | null) => string | null): FleetCard[] {
+export function featuredFleetCards(
+  equipment: Equipment[],
+  photoUrl: (item: Equipment) => string | null,
+): FleetCard[] {
   return FEATURED.map((item) => {
     const match = equipment.find(
       (row) =>
         item.slugHints.some((hint) => row.slug.includes(hint)) ||
         item.nameHints.every((hint) => row.name.toLowerCase().includes(hint)),
     );
-    const photo = match ? photoUrl(match.photo_path) : null;
+    const photo = match ? photoUrl(match) : null;
     return {
       name: match?.name ?? item.name,
       capacity: match?.capacity_tons ? `${match.capacity_tons} toneladas` : item.capacity,
