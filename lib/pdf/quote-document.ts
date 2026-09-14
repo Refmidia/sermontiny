@@ -1,5 +1,6 @@
 import { formatCep, formatCnpj, formatCpf, formatDateBr, onlyDigits } from '@/lib/format';
 import { companyAddress } from '@/lib/data/company';
+import { resolveQuotePix } from '@/lib/pix/quote-pix';
 import type { CompanySettings, Customer, QuoteItem, QuoteVersion } from '@/types/database';
 
 export type QuoteDocumentModel = {
@@ -31,6 +32,8 @@ export type QuoteDocumentModel = {
   taxCents: number;
   totalCents: number;
   totalExtenso: string;
+  pixKeyLabel?: string | null;
+  pixQrSrc?: string | null;
 };
 
 export function formatDocumentLabel(value: string) {
@@ -91,4 +94,10 @@ export function buildQuoteDocument(input: {
     totalCents: version.total_cents,
     totalExtenso: version.total_extenso,
   };
+}
+
+export async function withQuotePix(doc: QuoteDocumentModel): Promise<QuoteDocumentModel> {
+  const pix = await resolveQuotePix(doc.settings, doc.totalCents, doc.number);
+  if (!pix) return doc;
+  return { ...doc, pixKeyLabel: pix.keyLabel, pixQrSrc: pix.qrDataUrl };
 }

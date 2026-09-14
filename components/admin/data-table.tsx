@@ -11,6 +11,7 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState } from '@/components/admin/empty-state';
@@ -31,6 +32,7 @@ export function DataTable<TData>({
   emptyAction,
   filters,
   mobileTitle,
+  rowHref,
 }: {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -39,6 +41,7 @@ export function DataTable<TData>({
   emptyTitle?: string;
   emptyText?: string;
   emptyAction?: React.ReactNode;
+  rowHref?: (row: TData) => string;
   filters?: Array<{
     id: string;
     label: string;
@@ -48,9 +51,17 @@ export function DataTable<TData>({
   }>;
   mobileTitle?: (row: TData) => string;
 }) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState<Record<string, string>>({});
+
+  function openRow(event: React.MouseEvent, href?: string) {
+    if (!href) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('a, button')) return;
+    router.push(href);
+  }
 
   const filteredData = useMemo(() => {
     return data.filter((row) =>
@@ -132,22 +143,35 @@ export function DataTable<TData>({
                 ))}
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
+                {rows.map((row) => {
+                  const href = rowHref?.(row.original);
+                  return (
+                    <TableRow
+                      key={row.id}
+                      onClick={(event) => openRow(event, href)}
+                      className={href ? 'cursor-pointer hover:bg-[#FFF8E4]' : undefined}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
 
           <div className="space-y-3 md:hidden">
-            {rows.map((row) => (
-              <article key={row.id} className="rounded-xl border border-border bg-paper px-4 py-3">
+            {rows.map((row) => {
+              const href = rowHref?.(row.original);
+              return (
+              <article
+                key={row.id}
+                onClick={(event) => openRow(event, href)}
+                className={`rounded-xl border border-border bg-paper px-4 py-3 ${href ? 'cursor-pointer hover:border-gold hover:bg-[#FFF8E4]' : ''}`}
+              >
                 {mobileTitle && (
                   <p className="mb-2 text-sm font-semibold text-navy">{mobileTitle(row.original)}</p>
                 )}
@@ -166,7 +190,8 @@ export function DataTable<TData>({
                   })}
                 </dl>
               </article>
-            ))}
+              );
+            })}
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-2">

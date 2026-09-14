@@ -1,6 +1,7 @@
 import { formatBRL } from '@/lib/money';
 import { UNIT_LABELS } from '@/types/database';
 import type { QuoteDocumentModel } from '@/lib/pdf/quote-document';
+import { QuotePixCard } from '@/components/admin/quote-pix-card';
 
 export function QuotePrintView({ doc }: { doc: QuoteDocumentModel }) {
   return (
@@ -30,17 +31,35 @@ export function QuotePrintView({ doc }: { doc: QuoteDocumentModel }) {
             ) : null}
           </p>
         </div>
-        <div className="w-52 bg-navy p-3 text-right text-white">
-          <p className="text-[10px] font-semibold tracking-[0.16em] text-gold uppercase">Proposta comercial</p>
-          <p className="mt-1 text-lg font-bold">{doc.number}</p>
-          <p className="mt-1 text-[11px] text-white/75">Versão {doc.version}</p>
-          <p className="text-[11px] text-white/75">Emissão {doc.issuedAt}</p>
-          {doc.validUntil && <p className="text-[11px] text-white/75">Validade {doc.validUntil}</p>}
+        <div className="w-[220px] overflow-hidden rounded-xl border border-[#E4C56A] bg-[linear-gradient(180deg,#FFFDF4_0%,#F8E7B4_100%)] shadow-[0_6px_18px_rgba(214,167,44,0.14)]">
+          <div className="h-1.5 bg-gold" />
+          <div className="px-3.5 py-3">
+            <span className="inline-flex rounded-full bg-navy px-2 py-0.5 text-[9px] font-bold tracking-[0.16em] text-gold uppercase">
+              Proposta comercial
+            </span>
+            <p className="mt-2 text-[20px] leading-none font-bold tracking-tight text-navy">{doc.number}</p>
+            <div className="mt-3 space-y-1.5 border-t border-[#E4C56A]/70 pt-2.5 text-[11px]">
+              <p className="flex items-center justify-between gap-3">
+                <span className="font-semibold tracking-wide text-navy/45 uppercase">Versão</span>
+                <span className="font-semibold text-navy">{doc.version}</span>
+              </p>
+              <p className="flex items-center justify-between gap-3">
+                <span className="font-semibold tracking-wide text-navy/45 uppercase">Emissão</span>
+                <span className="font-semibold text-navy">{doc.issuedAt}</span>
+              </p>
+              {doc.validUntil && (
+                <p className="flex items-center justify-between gap-3">
+                  <span className="font-semibold tracking-wide text-navy/45 uppercase">Validade</span>
+                  <span className="font-semibold text-navy">{doc.validUntil}</span>
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
       <div className="mb-5 grid gap-3 md:grid-cols-2">
-        <section className="rounded-md border border-border p-3">
+        <section className="rounded-xl border border-[#E8D7A0] bg-[#FFFCF4] p-3.5">
           <p className="text-[10px] font-semibold tracking-[0.16em] text-gold uppercase">Cliente</p>
           <p className="mt-1 font-semibold text-navy">{doc.customerName}</p>
           {doc.customerTradeName && <p className="text-sm text-muted">{doc.customerTradeName}</p>}
@@ -49,7 +68,7 @@ export function QuotePrintView({ doc }: { doc: QuoteDocumentModel }) {
           {doc.customerEmail && <p className="text-sm text-muted">{doc.customerEmail}</p>}
           {doc.customerPhone && <p className="text-sm text-muted">{doc.customerPhone}</p>}
         </section>
-        <section className="rounded-md border border-border p-3">
+        <section className="rounded-xl border border-[#E8D7A0] bg-[#FFFCF4] p-3.5">
           <p className="text-[10px] font-semibold tracking-[0.16em] text-gold uppercase">Serviço</p>
           <p className="mt-1 font-semibold text-navy">{doc.title}</p>
           {(doc.startDate || doc.endDate) && (
@@ -91,35 +110,51 @@ export function QuotePrintView({ doc }: { doc: QuoteDocumentModel }) {
         </tbody>
       </table>
 
-      <div className="mt-5 ml-auto w-full max-w-xs text-sm">
-        <div className="flex justify-between py-1">
-          <span>Subtotal</span>
-          <span>{formatBRL(doc.subtotalCents)}</span>
+      {(doc.discountCents > 0 || doc.surchargeCents > 0 || doc.taxCents > 0) && (
+        <div className="mt-5 ml-auto w-full max-w-xs text-sm text-navy/70">
+          <div className="flex justify-between py-1">
+            <span>Subtotal</span>
+            <span>{formatBRL(doc.subtotalCents)}</span>
+          </div>
+          {doc.discountCents > 0 && (
+            <div className="flex justify-between py-1">
+              <span>Desconto</span>
+              <span>- {formatBRL(doc.discountCents)}</span>
+            </div>
+          )}
+          {doc.surchargeCents > 0 && (
+            <div className="flex justify-between py-1">
+              <span>Acréscimo</span>
+              <span>{formatBRL(doc.surchargeCents)}</span>
+            </div>
+          )}
+          {doc.taxCents > 0 && (
+            <div className="flex justify-between py-1">
+              <span>Impostos</span>
+              <span>{formatBRL(doc.taxCents)}</span>
+            </div>
+          )}
         </div>
-        {doc.discountCents > 0 && (
-          <div className="flex justify-between py-1">
-            <span>Desconto</span>
-            <span>- {formatBRL(doc.discountCents)}</span>
-          </div>
-        )}
-        {doc.surchargeCents > 0 && (
-          <div className="flex justify-between py-1">
-            <span>Acréscimo</span>
-            <span>{formatBRL(doc.surchargeCents)}</span>
-          </div>
-        )}
-        {doc.taxCents > 0 && (
-          <div className="flex justify-between py-1">
-            <span>Impostos</span>
-            <span>{formatBRL(doc.taxCents)}</span>
-          </div>
-        )}
-        <div className="mt-1 flex justify-between bg-navy px-3 py-2 font-semibold text-white">
-          <span>Total</span>
-          <span>{formatBRL(doc.totalCents)}</span>
+      )}
+
+      {doc.pixQrSrc ? (
+        <div className="mt-5">
+          <QuotePixCard
+            qrSrc={doc.pixQrSrc}
+            keyLabel={doc.pixKeyLabel}
+            totalCents={doc.totalCents}
+            totalExtenso={doc.totalExtenso}
+          />
         </div>
-        <p className="mt-2 text-xs text-muted italic">{doc.totalExtenso}</p>
-      </div>
+      ) : (
+        <div className="mt-5 ml-auto w-full max-w-xs">
+          <div className="flex justify-between bg-navy px-3 py-2 font-semibold text-white">
+            <span>Total</span>
+            <span>{formatBRL(doc.totalCents)}</span>
+          </div>
+          <p className="mt-2 text-xs text-muted italic">{doc.totalExtenso}</p>
+        </div>
+      )}
 
       {doc.paymentTerms && (
         <section className="mt-6">

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { getCompanySettings } from '@/lib/data/company';
-import { buildQuoteDocument } from '@/lib/pdf/quote-document';
+import { buildQuoteDocument, withQuotePix } from '@/lib/pdf/quote-document';
 import { QuotePrintView } from '@/components/admin/quote-print-view';
 import { PrintButton } from '@/components/admin/print-button';
 import type { Customer, QuoteItem, QuoteVersion } from '@/types/database';
@@ -25,14 +25,16 @@ export default async function QuotePrintPage({ params }: { params: Promise<{ id:
   if (!quote || !version || !customer) notFound();
   const { data: items } = await supabase.from('quote_items').select('*').eq('quote_version_id', version.id).order('sort_order');
 
-  const doc = buildQuoteDocument({
-    settings,
-    number: quote.number,
-    version: version as QuoteVersion,
-    customer: customer as Customer,
-    unitName: unit?.name,
-    items: (items ?? []) as QuoteItem[],
-  });
+  const doc = await withQuotePix(
+    buildQuoteDocument({
+      settings,
+      number: quote.number,
+      version: version as QuoteVersion,
+      customer: customer as Customer,
+      unitName: unit?.name,
+      items: (items ?? []) as QuoteItem[],
+    }),
+  );
 
   return (
     <div className="space-y-4">

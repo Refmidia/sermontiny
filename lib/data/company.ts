@@ -26,7 +26,7 @@ export function fallbackCompanySettings(): CompanySettings {
     bank_name: null,
     bank_agency: null,
     bank_account: null,
-    pix_key: null,
+    pix_key: '16.592.847/0001-72',
     default_payment_terms: null,
     default_commercial_terms: null,
     default_responsibilities: null,

@@ -9,7 +9,7 @@ import { getCompanySettings } from '@/lib/data/company';
 import { renderPdfBuffer } from '@/lib/pdf/render';
 import { ContractPdf } from '@/lib/pdf/documents';
 import { QuotePdf } from '@/lib/pdf/quote-pdf';
-import { buildQuoteDocument } from '@/lib/pdf/quote-document';
+import { buildQuoteDocument, withQuotePix } from '@/lib/pdf/quote-document';
 import { sendWhatsApp, applyTemplate } from '@/lib/whatsapp';
 import { formatDateBr, toWhatsAppDigits } from '@/lib/format';
 import { RESPONSIBILITY_LABELS, type ResponsibilityParty } from '@/types/database';
@@ -37,14 +37,16 @@ export async function generateQuotePdf(quoteId: string, lockImmutable = false) {
 
   const buffer = await renderPdfBuffer(
     QuotePdf(
-      buildQuoteDocument({
-        settings,
-        number: quote.number,
-        version,
-        customer,
-        unitName: unit?.name,
-        items: items ?? [],
-      }),
+      await withQuotePix(
+        buildQuoteDocument({
+          settings,
+          number: quote.number,
+          version,
+          customer,
+          unitName: unit?.name,
+          items: items ?? [],
+        }),
+      ),
     ),
   );
 

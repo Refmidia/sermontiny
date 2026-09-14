@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MoreHorizontal } from 'lucide-react';
+import { ChevronRight, MoreHorizontal, Printer } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/admin/data-table';
 import {
@@ -27,6 +27,25 @@ import {
   type Equipment,
   type QuoteStatus,
 } from '@/types/database';
+
+function QuoteRowActions({ id, number }: { id: string; number: string }) {
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <Button asChild variant="outline" className="h-8 px-2.5 text-xs">
+        <Link href={`/admin/orcamentos/${id}`} aria-label={`Abrir ${number}`}>
+          Abrir
+          <ChevronRight />
+        </Link>
+      </Button>
+      <Button asChild variant="gold" className="h-8 px-2.5 text-xs">
+        <Link href={`/admin/orcamentos/${id}/imprimir`} target="_blank" aria-label={`Imprimir ${number}`}>
+          <Printer />
+          Imprimir
+        </Link>
+      </Button>
+    </div>
+  );
+}
 
 function RowActions({ href, label }: { href: string; label: string }) {
   return (
@@ -190,12 +209,21 @@ export function QuotesTable({ data, initialQuery = '' }: { data: QuoteRow[]; ini
   const columns: ColumnDef<QuoteRow>[] = [
     {
       accessorKey: 'number',
-      header: 'Número',
-      cell: ({ row }) => (
-        <Link href={`/admin/orcamentos/${row.original.id}`} className="font-medium text-navy hover:underline">
-          {row.original.number}
-        </Link>
-      ),
+      header: 'Orçamento',
+      cell: ({ row }) => {
+        const version = Array.isArray(row.original.quote_versions)
+          ? row.original.quote_versions[0]
+          : row.original.quote_versions;
+        return (
+          <div>
+            <p className="font-semibold text-navy">{row.original.number}</p>
+            <p className="mt-0.5 text-[12px] text-muted">
+              {row.original.title}
+              {version?.version_number ? ` · V${version.version_number}` : ''}
+            </p>
+          </div>
+        );
+      },
     },
     {
       id: 'customer',
@@ -206,32 +234,25 @@ export function QuotesTable({ data, initialQuery = '' }: { data: QuoteRow[]; ini
       },
       cell: ({ row }) => {
         const customer = Array.isArray(row.original.customers) ? row.original.customers[0] : row.original.customers;
-        return customer?.legal_name ?? '—';
+        const unit = Array.isArray(row.original.customer_units)
+          ? row.original.customer_units[0]
+          : row.original.customer_units;
+        return (
+          <div>
+            <p className="font-medium text-navy">{customer?.legal_name ?? '—'}</p>
+            {unit?.name ? <p className="mt-0.5 text-[12px] text-muted">{unit.name}</p> : null}
+          </div>
+        );
       },
     },
-    {
-      id: 'unit',
-      header: 'Unidade',
-      cell: ({ row }) => {
-        const unit = Array.isArray(row.original.customer_units) ? row.original.customer_units[0] : row.original.customer_units;
-        return unit?.name ?? '—';
-      },
-    },
-    { accessorKey: 'title', header: 'Escopo' },
     {
       id: 'total',
       header: 'Valor',
       cell: ({ row }) => {
-        const version = Array.isArray(row.original.quote_versions) ? row.original.quote_versions[0] : row.original.quote_versions;
-        return formatBRL(version?.total_cents ?? 0);
-      },
-    },
-    {
-      id: 'version',
-      header: 'Versão',
-      cell: ({ row }) => {
-        const version = Array.isArray(row.original.quote_versions) ? row.original.quote_versions[0] : row.original.quote_versions;
-        return version?.version_number ? `V${version.version_number}` : '—';
+        const version = Array.isArray(row.original.quote_versions)
+          ? row.original.quote_versions[0]
+          : row.original.quote_versions;
+        return <span className="font-semibold text-navy">{formatBRL(version?.total_cents ?? 0)}</span>;
       },
     },
     {
@@ -243,19 +264,16 @@ export function QuotesTable({ data, initialQuery = '' }: { data: QuoteRow[]; ini
       id: 'valid_until',
       header: 'Validade',
       cell: ({ row }) => {
-        const version = Array.isArray(row.original.quote_versions) ? row.original.quote_versions[0] : row.original.quote_versions;
+        const version = Array.isArray(row.original.quote_versions)
+          ? row.original.quote_versions[0]
+          : row.original.quote_versions;
         return version?.valid_until ? formatDateBr(version.valid_until) : '—';
       },
     },
     {
-      accessorKey: 'created_at',
-      header: 'Data',
-      cell: ({ row }) => (row.original.created_at ? formatDateBr(row.original.created_at.slice(0, 10)) : '—'),
-    },
-    {
       id: 'actions',
-      header: '',
-      cell: ({ row }) => <RowActions href={`/admin/orcamentos/${row.original.id}`} label={row.original.number} />,
+      header: 'Ações',
+      cell: ({ row }) => <QuoteRowActions id={row.original.id} number={row.original.number} />,
     },
   ];
 
@@ -273,6 +291,7 @@ export function QuotesTable({ data, initialQuery = '' }: { data: QuoteRow[]; ini
         </Button>
       }
       mobileTitle={(row) => row.number}
+      rowHref={(row) => `/admin/orcamentos/${row.id}`}
       filters={[
         {
           id: 'status',

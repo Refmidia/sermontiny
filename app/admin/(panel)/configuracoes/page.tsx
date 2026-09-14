@@ -95,7 +95,10 @@ export default async function SettingsPage() {
                 <FormField label="Conta">
                   <Input name="bank_account" defaultValue={settings.bank_account ?? ''} />
                 </FormField>
-                <FormField label="Chave Pix">
+                <FormField
+                  label="Chave Pix"
+                  hint="Essa chave gera o QR Code verde da proposta, já com o valor do orçamento."
+                >
                   <Input name="pix_key" defaultValue={settings.pix_key ?? ''} />
                 </FormField>
               </FormSection>

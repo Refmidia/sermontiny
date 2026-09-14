@@ -18,12 +18,26 @@ const styles = StyleSheet.create({
   logo: { width: 148, height: 44, objectFit: 'contain' },
   brandFallback: { fontSize: 16, color: navy, fontFamily: 'Helvetica-Bold' },
   companyMeta: { marginTop: 6, color: muted, lineHeight: 1.4, maxWidth: 260 },
-  stamp: { backgroundColor: navy, color: '#fff', paddingVertical: 8, paddingHorizontal: 10, width: 168, textAlign: 'right' },
-  stampLabel: { fontSize: 8, letterSpacing: 1.2, color: gold, fontFamily: 'Helvetica-Bold' },
-  stampNumber: { fontSize: 13, marginTop: 3, fontFamily: 'Helvetica-Bold' },
-  stampMeta: { fontSize: 8, marginTop: 3, color: '#E8EEF5' },
+  stamp: { width: 188, borderWidth: 1, borderColor: '#E4C56A', backgroundColor: '#FFF4CC', overflow: 'hidden' },
+  stampBar: { height: 5, backgroundColor: gold },
+  stampBody: { paddingVertical: 8, paddingHorizontal: 10 },
+  stampBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: navy,
+    color: gold,
+    fontSize: 7,
+    letterSpacing: 1.1,
+    fontFamily: 'Helvetica-Bold',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  stampNumber: { marginTop: 6, fontSize: 13, color: navy, fontFamily: 'Helvetica-Bold' },
+  stampMetaList: { marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#E4C56A' },
+  stampMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
+  stampMetaLabel: { fontSize: 7, color: muted, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5 },
+  stampMetaValue: { fontSize: 8, color: navy, fontFamily: 'Helvetica-Bold' },
   grid: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  card: { flex: 1, borderWidth: 1, borderColor: line, padding: 10 },
+  card: { flex: 1, borderWidth: 1, borderColor: '#E8D7A0', backgroundColor: '#FFFCF4', padding: 10 },
   cardTitle: { fontSize: 8, letterSpacing: 1, color: gold, fontFamily: 'Helvetica-Bold', marginBottom: 5 },
   strong: { fontFamily: 'Helvetica-Bold', color: navy, fontSize: 10 },
   line: { marginTop: 2, color: muted },
@@ -35,10 +49,38 @@ const styles = StyleSheet.create({
   colUnit: { width: '14%' },
   colQty: { width: '10%', textAlign: 'right' },
   colValue: { width: '18%', textAlign: 'right' },
-  totals: { marginTop: 10, alignSelf: 'flex-end', width: 250 },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-  totalFinal: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: navy, color: '#fff', padding: 8, marginTop: 4 },
   extenso: { marginTop: 6, fontSize: 8, color: muted, fontFamily: 'Helvetica-Oblique' },
+  adjustRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2, color: muted },
+  pixWrap: { marginTop: 14, borderWidth: 1, borderColor: '#E4C56A', backgroundColor: '#FFF4CC' },
+  pixBar: { height: 5, backgroundColor: gold },
+  pixCard: { padding: 12, flexDirection: 'row', gap: 14, alignItems: 'center' },
+  pixCopy: { flex: 1 },
+  pixHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  pixBadge: {
+    backgroundColor: navy,
+    color: gold,
+    fontSize: 8,
+    letterSpacing: 1.4,
+    fontFamily: 'Helvetica-Bold',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  pixTitle: { fontSize: 9, color: navy, fontFamily: 'Helvetica-Bold', letterSpacing: 0.6 },
+  pixHint: { marginTop: 4, fontSize: 8, color: muted },
+  pixTotalLabel: { fontSize: 8, color: muted, fontFamily: 'Helvetica-Bold', letterSpacing: 0.6 },
+  pixTotalValue: { marginTop: 2, fontSize: 16, color: navy, fontFamily: 'Helvetica-Bold' },
+  pixKeyBox: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E4C56A',
+    backgroundColor: '#fff',
+    padding: 6,
+  },
+  pixKeyLabel: { fontSize: 7, color: gold, fontFamily: 'Helvetica-Bold', letterSpacing: 0.8 },
+  pixKeyValue: { marginTop: 2, fontSize: 10, color: navy, fontFamily: 'Helvetica-Bold' },
+  pixChecks: { marginTop: 7, fontSize: 7, color: muted },
+  pixQrFrame: { borderWidth: 2, borderColor: gold, backgroundColor: '#fff', padding: 4 },
+  pixQr: { width: 92, height: 92, objectFit: 'contain' },
   signRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 28 },
   signBox: { width: '46%', borderTopWidth: 1, borderTopColor: navy, paddingTop: 6, textAlign: 'center', fontSize: 8, color: muted },
   footer: { position: 'absolute', bottom: 18, left: 36, right: 36, borderTopWidth: 1, borderTopColor: gold, paddingTop: 6, fontSize: 7, color: muted, flexDirection: 'row', justifyContent: 'space-between' },
@@ -69,11 +111,27 @@ export function QuotePdf(props: QuoteDocumentModel) {
             </Text>
           </View>
           <View style={styles.stamp}>
-            <Text style={styles.stampLabel}>PROPOSTA COMERCIAL</Text>
-            <Text style={styles.stampNumber}>{props.number}</Text>
-            <Text style={styles.stampMeta}>Versão {props.version}</Text>
-            <Text style={styles.stampMeta}>Emissão {props.issuedAt}</Text>
-            {props.validUntil ? <Text style={styles.stampMeta}>Validade {props.validUntil}</Text> : null}
+            <View style={styles.stampBar} />
+            <View style={styles.stampBody}>
+              <Text style={styles.stampBadge}>PROPOSTA COMERCIAL</Text>
+              <Text style={styles.stampNumber}>{props.number}</Text>
+              <View style={styles.stampMetaList}>
+                <View style={styles.stampMetaRow}>
+                  <Text style={styles.stampMetaLabel}>VERSÃO</Text>
+                  <Text style={styles.stampMetaValue}>{props.version}</Text>
+                </View>
+                <View style={styles.stampMetaRow}>
+                  <Text style={styles.stampMetaLabel}>EMISSÃO</Text>
+                  <Text style={styles.stampMetaValue}>{props.issuedAt}</Text>
+                </View>
+                {props.validUntil ? (
+                  <View style={styles.stampMetaRow}>
+                    <Text style={styles.stampMetaLabel}>VALIDADE</Text>
+                    <Text style={styles.stampMetaValue}>{props.validUntil}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
           </View>
         </View>
 
@@ -124,35 +182,60 @@ export function QuotePdf(props: QuoteDocumentModel) {
           </View>
         ))}
 
-        <View style={styles.totals}>
-          <View style={styles.totalRow}>
-            <Text>Subtotal</Text>
-            <Text>{formatBRL(props.subtotalCents)}</Text>
+        {(props.discountCents > 0 || props.surchargeCents > 0 || props.taxCents > 0) ? (
+          <View style={{ marginTop: 10, alignSelf: 'flex-end', width: 220 }}>
+            <View style={styles.adjustRow}>
+              <Text>Subtotal</Text>
+              <Text>{formatBRL(props.subtotalCents)}</Text>
+            </View>
+            {props.discountCents > 0 ? (
+              <View style={styles.adjustRow}>
+                <Text>Desconto</Text>
+                <Text>- {formatBRL(props.discountCents)}</Text>
+              </View>
+            ) : null}
+            {props.surchargeCents > 0 ? (
+              <View style={styles.adjustRow}>
+                <Text>Acréscimo</Text>
+                <Text>{formatBRL(props.surchargeCents)}</Text>
+              </View>
+            ) : null}
+            {props.taxCents > 0 ? (
+              <View style={styles.adjustRow}>
+                <Text>Impostos</Text>
+                <Text>{formatBRL(props.taxCents)}</Text>
+              </View>
+            ) : null}
           </View>
-          {props.discountCents > 0 ? (
-            <View style={styles.totalRow}>
-              <Text>Desconto</Text>
-              <Text>- {formatBRL(props.discountCents)}</Text>
+        ) : null}
+
+        {props.pixQrSrc ? (
+          <View style={styles.pixWrap} wrap={false}>
+            <View style={styles.pixBar} />
+            <View style={styles.pixCard}>
+              <View style={styles.pixCopy}>
+                <View style={styles.pixHead}>
+                  <Text style={styles.pixBadge}>PIX</Text>
+                  <Text style={styles.pixTitle}>PAGAMENTO VIA PIX</Text>
+                </View>
+                <Text style={styles.pixTotalLabel}>TOTAL À VISTA</Text>
+                <Text style={styles.pixTotalValue}>{formatBRL(props.totalCents)}</Text>
+                <Text style={styles.extenso}>{props.totalExtenso}</Text>
+                {props.pixKeyLabel ? (
+                  <View style={styles.pixKeyBox}>
+                    <Text style={styles.pixKeyLabel}>CHAVE PIX · CNPJ</Text>
+                    <Text style={styles.pixKeyValue}>{props.pixKeyLabel}</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.pixHint}>Escaneie o QR Code no aplicativo do seu banco.</Text>
+                <Text style={styles.pixChecks}>Pagamento instantâneo  ·  Guarde o comprovante</Text>
+              </View>
+              <View style={styles.pixQrFrame}>
+                <Image src={props.pixQrSrc} style={styles.pixQr} />
+              </View>
             </View>
-          ) : null}
-          {props.surchargeCents > 0 ? (
-            <View style={styles.totalRow}>
-              <Text>Acréscimo</Text>
-              <Text>{formatBRL(props.surchargeCents)}</Text>
-            </View>
-          ) : null}
-          {props.taxCents > 0 ? (
-            <View style={styles.totalRow}>
-              <Text>Impostos</Text>
-              <Text>{formatBRL(props.taxCents)}</Text>
-            </View>
-          ) : null}
-          <View style={styles.totalFinal}>
-            <Text style={{ fontFamily: 'Helvetica-Bold' }}>Total</Text>
-            <Text style={{ fontFamily: 'Helvetica-Bold' }}>{formatBRL(props.totalCents)}</Text>
           </View>
-          <Text style={styles.extenso}>{props.totalExtenso}</Text>
-        </View>
+        ) : null}
 
         {props.paymentTerms ? (
           <View style={{ marginTop: 14 }}>
