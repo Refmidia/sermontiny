@@ -8,6 +8,7 @@ import {
   type QuoteStatus,
   type RecordStatus,
 } from '@/types/database';
+import { LEAD_STATUS_LABELS } from '@/lib/leads/ui';
 
 type BadgeTone = 'success' | 'warning' | 'danger' | 'muted' | 'default' | 'gold';
 
@@ -71,8 +72,12 @@ export function leadStatusTone(status: LeadStatus): BadgeTone {
       return 'success';
     case 'in_progress':
       return 'warning';
+    case 'proposal_sent':
+      return 'gold';
     case 'new':
       return 'default';
+    case 'lost':
+      return 'danger';
     default:
       return 'muted';
   }
@@ -96,13 +101,6 @@ const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
   rented: 'Locado',
   maintenance: 'Manutenção',
   inactive: 'Inativo',
-};
-
-const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
-  new: 'Novo',
-  in_progress: 'Em andamento',
-  converted: 'Convertido',
-  archived: 'Arquivado',
 };
 
 export function QuoteStatusBadge({ status }: { status: QuoteStatus }) {

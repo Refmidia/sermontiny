@@ -1,7 +1,8 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { assertPermission } from '@/lib/auth/session';
+import { COMPANY_SETTINGS_TAG } from '@/lib/data/company';
 import { writeAuditLog } from '@/lib/audit';
 import { createClient } from '@/lib/supabase/server';
 import { companySettingsSchema } from '@/lib/validations/common';
@@ -96,6 +97,7 @@ export async function saveCompanySettings(formData: FormData) {
     .eq('id', '00000000-0000-0000-0000-000000000001');
   if (error) return { error: 'Não foi possível salvar as configurações.' };
   await writeAuditLog({ actorId: user.id, action: 'update', entity: 'company_settings' });
+  updateTag(COMPANY_SETTINGS_TAG);
   revalidatePath('/admin/configuracoes');
   revalidatePath('/');
   return { ok: true as const };
@@ -114,6 +116,7 @@ export async function updateUserRole(formData: FormData) {
     .eq('id', profileId);
   if (error) return { error: 'Não foi possível atualizar o usuário.' };
   await writeAuditLog({ actorId: user.id, action: 'update', entity: 'profiles', entityId: profileId });
+  revalidatePath('/admin/usuarios');
   revalidatePath('/admin/configuracoes');
   return { ok: true as const };
 }

@@ -6,8 +6,7 @@ import { SiteImage } from '@/components/public/site-image';
 import { Button } from '@/components/ui/button';
 import { COMPANY_STORY } from '@/lib/content/company';
 import { PUBLIC_MEDIA } from '@/lib/content/public-media';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
-import { createClient } from '@/lib/supabase/server';
+import { getPublicCertificates } from '@/lib/data/certificates';
 import { publicStorageUrl } from '@/lib/storage-url';
 
 export const metadata: Metadata = {
@@ -15,21 +14,10 @@ export const metadata: Metadata = {
   description: 'História, missão, visão, valores, segurança e qualidade da Sermontiny.',
 };
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 export default async function CompanyPage() {
-  const certificates = isSupabaseConfigured()
-    ? await (async () => {
-        const supabase = await createClient();
-        const { data } = await supabase
-          .from('documents')
-          .select('id, file_name, storage_path')
-          .eq('kind', 'certificate')
-          .is('deleted_at', null)
-          .limit(12);
-        return data ?? [];
-      })()
-    : [];
+  const certificates = await getPublicCertificates();
 
   return (
     <>

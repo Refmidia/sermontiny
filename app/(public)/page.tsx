@@ -23,13 +23,13 @@ import { SectionHeading } from '@/components/public/section-heading';
 import { PUBLIC_MEDIA } from '@/lib/content/public-media';
 import { featuredFleetCards } from '@/lib/content/home-fleet';
 import { SERVICES } from '@/lib/content/services';
-import { getCompanySettings } from '@/lib/data/company';
+import { getPublicCompanySettings } from '@/lib/data/company';
 import { getPublicEquipment } from '@/lib/data/equipment';
 import { equipmentPhotoSrc } from '@/lib/storage-url';
 import { commercialWhatsAppHref } from '@/lib/whatsapp-public';
 import { formatBRL } from '@/lib/money';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 const HOME_SERVICES = [
   'montagens-industriais',
@@ -41,7 +41,7 @@ const HOME_SERVICES = [
 ] as const;
 
 export default async function HomePage() {
-  const [settings, equipment] = await Promise.all([getCompanySettings(), getPublicEquipment()]);
+  const [settings, equipment] = await Promise.all([getPublicCompanySettings(), getPublicEquipment()]);
   const fleet = featuredFleetCards(equipment, (item) => equipmentPhotoSrc(item));
   const whatsappHref = commercialWhatsAppHref(settings.whatsapp);
 
@@ -59,7 +59,7 @@ export default async function HomePage() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-navy/80 via-navy/35 to-navy/10" />
         <div className="absolute inset-0 bg-gradient-to-t from-navy/45 via-transparent to-navy/15" />
-        <SiteContainer className="relative flex min-h-[620px] flex-col justify-center py-16 md:min-h-[650px] md:py-20">
+        <SiteContainer className="relative z-[3] flex min-h-[620px] flex-col justify-center py-16 md:min-h-[650px] md:py-20">
           <div className="max-w-[560px] drop-shadow-[0_8px_24px_rgba(7,27,53,0.35)]">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-gold uppercase">
               Montagem industrial • Locação de equipamentos
@@ -84,6 +84,21 @@ export default async function HomePage() {
               <li>Equipe qualificada</li>
               <li>Atendimento industrial</li>
             </ul>
+          </div>
+          <div className="pointer-events-none mt-10 flex justify-center lg:absolute lg:top-10 lg:right-6 lg:bottom-[170px] lg:mt-0 lg:w-[560px] lg:items-center">
+            <div className="rounded-2xl bg-white/95 p-4 shadow-[0_18px_40px_rgba(7,27,53,0.35)] ring-1 ring-white/60 sm:p-5 lg:p-6">
+              {/* Native img keeps the transparent overlay intact on Vercel. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={PUBLIC_MEDIA.heroMark.src}
+                alt={PUBLIC_MEDIA.heroMark.alt}
+                width={760}
+                height={589}
+                decoding="async"
+                fetchPriority="high"
+                className="h-auto w-[240px] object-contain sm:w-[300px] lg:w-[380px]"
+              />
+            </div>
           </div>
           <aside className="mt-10 w-full lg:absolute lg:right-6 lg:bottom-10 lg:mt-0 lg:w-[560px]">
             <ul className="grid grid-cols-1 overflow-hidden rounded-xl border border-white/15 bg-navy/60 sm:grid-cols-3 sm:divide-x sm:divide-white/10">

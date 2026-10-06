@@ -6,6 +6,7 @@ export const SITE = {
     'Empresa especializada em montagem industrial, fabricação e manutenção de usinas, estruturas metálicas, reservatórios, tubulações, locação de guindastes, muncks e equipamentos industriais.',
   url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.sermontinymontagens.com.br',
   email: 'comercial@sermontinymontagens.com.br',
+  phone: '(18) 98147-2719',
   website: 'https://www.sermontinymontagens.com.br',
   instagram: 'https://www.instagram.com/sermontiny_montagens/',
   instagramHandle: '@sermontiny_montagens',

@@ -60,7 +60,7 @@ export function AdminHeader({
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-white px-4 lg:px-6">
+    <header className="flex h-16 items-center gap-3 border-b border-border bg-white px-4 lg:px-6">
       <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={onToggle}>
         {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
         <span className="sr-only">Recolher menu</span>

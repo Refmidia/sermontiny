@@ -1,30 +1,31 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import { existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatBRL } from '@/lib/money';
 import { UNIT_LABELS } from '@/types/database';
 import type { QuoteDocumentModel } from '@/lib/pdf/quote-document';
 
 const navy = '#071B35';
-const gold = '#D6A72C';
+const steel = '#174A7E';
 const ink = '#10233F';
 const muted = '#5C6B7A';
 const line = '#DDE4EC';
+const paper = '#F5F8FB';
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 28, paddingHorizontal: 36, paddingBottom: 48, fontSize: 9, color: ink, fontFamily: 'Helvetica' },
-  topBar: { height: 5, backgroundColor: gold, marginBottom: 16 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  logo: { width: 148, height: 44, objectFit: 'contain' },
+  page: { paddingTop: 32, paddingHorizontal: 36, paddingBottom: 52, fontSize: 9, color: ink, fontFamily: 'Helvetica' },
+  topBar: { height: 5, backgroundColor: navy, marginBottom: 18 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+  logo: { width: 158, height: 48, objectFit: 'contain' },
   brandFallback: { fontSize: 16, color: navy, fontFamily: 'Helvetica-Bold' },
-  companyMeta: { marginTop: 6, color: muted, lineHeight: 1.4, maxWidth: 260 },
-  stamp: { width: 188, borderWidth: 1, borderColor: '#E4C56A', backgroundColor: '#FFF4CC', overflow: 'hidden' },
-  stampBar: { height: 5, backgroundColor: gold },
-  stampBody: { paddingVertical: 8, paddingHorizontal: 10 },
+  companyMeta: { marginTop: 8, color: muted, lineHeight: 1.45, maxWidth: 270 },
+  stamp: { width: 188, borderWidth: 1, borderColor: line, backgroundColor: paper, overflow: 'hidden' },
+  stampBar: { height: 5, backgroundColor: navy },
+  stampBody: { paddingVertical: 10, paddingHorizontal: 10 },
   stampBadge: {
     alignSelf: 'flex-start',
     backgroundColor: navy,
-    color: gold,
+    color: '#FFFFFF',
     fontSize: 7,
     letterSpacing: 1.1,
     fontFamily: 'Helvetica-Bold',
@@ -32,33 +33,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   stampNumber: { marginTop: 6, fontSize: 13, color: navy, fontFamily: 'Helvetica-Bold' },
-  stampMetaList: { marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#E4C56A' },
+  stampMetaList: { marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: line },
   stampMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
   stampMetaLabel: { fontSize: 7, color: muted, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5 },
   stampMetaValue: { fontSize: 8, color: navy, fontFamily: 'Helvetica-Bold' },
-  grid: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  card: { flex: 1, borderWidth: 1, borderColor: '#E8D7A0', backgroundColor: '#FFFCF4', padding: 10 },
-  cardTitle: { fontSize: 8, letterSpacing: 1, color: gold, fontFamily: 'Helvetica-Bold', marginBottom: 5 },
+  grid: { flexDirection: 'row', gap: 12, marginBottom: 14 },
+  card: { flex: 1, borderWidth: 1, borderColor: line, backgroundColor: paper, padding: 12 },
+  cardTitle: { fontSize: 8, letterSpacing: 1, color: navy, fontFamily: 'Helvetica-Bold', marginBottom: 6 },
   strong: { fontFamily: 'Helvetica-Bold', color: navy, fontSize: 10 },
-  line: { marginTop: 2, color: muted },
+  line: { marginTop: 3, color: muted },
   title: { fontSize: 12, color: navy, fontFamily: 'Helvetica-Bold', marginBottom: 6 },
-  body: { lineHeight: 1.45, color: ink },
-  tableHeader: { flexDirection: 'row', backgroundColor: navy, color: '#fff', paddingVertical: 6, paddingHorizontal: 6 },
-  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: line, paddingVertical: 6, paddingHorizontal: 6 },
+  body: { lineHeight: 1.5, color: ink },
+  tableHeader: { flexDirection: 'row', backgroundColor: navy, color: '#fff', paddingVertical: 7, paddingHorizontal: 6 },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: line, paddingVertical: 7, paddingHorizontal: 6 },
   colDesc: { width: '40%' },
   colUnit: { width: '14%' },
   colQty: { width: '10%', textAlign: 'right' },
   colValue: { width: '18%', textAlign: 'right' },
   extenso: { marginTop: 6, fontSize: 8, color: muted, fontFamily: 'Helvetica-Oblique' },
   adjustRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2, color: muted },
-  pixWrap: { marginTop: 14, borderWidth: 1, borderColor: '#E4C56A', backgroundColor: '#FFF4CC' },
-  pixBar: { height: 5, backgroundColor: gold },
-  pixCard: { padding: 12, flexDirection: 'row', gap: 14, alignItems: 'center' },
+  pixWrap: { marginTop: 16, borderWidth: 1, borderColor: line, backgroundColor: paper },
+  pixBar: { height: 5, backgroundColor: navy },
+  pixCard: { padding: 14, flexDirection: 'row', gap: 14, alignItems: 'center' },
   pixCopy: { flex: 1 },
   pixHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   pixBadge: {
     backgroundColor: navy,
-    color: gold,
+    color: '#FFFFFF',
     fontSize: 8,
     letterSpacing: 1.4,
     fontFamily: 'Helvetica-Bold',
@@ -72,23 +73,24 @@ const styles = StyleSheet.create({
   pixKeyBox: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#E4C56A',
-    backgroundColor: '#fff',
-    padding: 6,
+    borderColor: line,
+    backgroundColor: navy,
+    padding: 8,
   },
-  pixKeyLabel: { fontSize: 7, color: gold, fontFamily: 'Helvetica-Bold', letterSpacing: 0.8 },
-  pixKeyValue: { marginTop: 2, fontSize: 10, color: navy, fontFamily: 'Helvetica-Bold' },
+  pixKeyLabel: { fontSize: 7, color: '#FFFFFFB3', fontFamily: 'Helvetica-Bold', letterSpacing: 0.8 },
+  pixKeyValue: { marginTop: 2, fontSize: 10, color: '#FFFFFF', fontFamily: 'Helvetica-Bold' },
   pixChecks: { marginTop: 7, fontSize: 7, color: muted },
-  pixQrFrame: { borderWidth: 2, borderColor: gold, backgroundColor: '#fff', padding: 4 },
-  pixQr: { width: 92, height: 92, objectFit: 'contain' },
-  signRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 28 },
+  pixQrFrame: { borderWidth: 2, borderColor: steel, backgroundColor: '#fff', padding: 4 },
+  pixQr: { width: 96, height: 96, objectFit: 'contain' },
+  signRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
   signBox: { width: '46%', borderTopWidth: 1, borderTopColor: navy, paddingTop: 6, textAlign: 'center', fontSize: 8, color: muted },
-  footer: { position: 'absolute', bottom: 18, left: 36, right: 36, borderTopWidth: 1, borderTopColor: gold, paddingTop: 6, fontSize: 7, color: muted, flexDirection: 'row', justifyContent: 'space-between' },
+  footer: { position: 'absolute', bottom: 18, left: 36, right: 36, borderTopWidth: 1, borderTopColor: navy, paddingTop: 6, fontSize: 7, color: muted, flexDirection: 'row', justifyContent: 'space-between' },
 });
 
 function logoSrc() {
   const path = join(process.cwd(), 'public/images/sermontiny/logo-oficial-nav.png');
-  return existsSync(path) ? path : null;
+  if (!existsSync(path)) return null;
+  return `data:image/png;base64,${readFileSync(path).toString('base64')}`;
 }
 
 export function QuotePdf(props: QuoteDocumentModel) {
@@ -106,7 +108,7 @@ export function QuotePdf(props: QuoteDocumentModel) {
               CNPJ {props.settings.cnpj}
               {'\n'}
               {props.companyAddress}
-              {props.settings.whatsapp || props.settings.phones?.[0] ? `\n${props.settings.whatsapp || props.settings.phones[0]}` : ''}
+              {props.settings.whatsapp || props.settings.phones?.[0] ? `\n${props.settings.whatsapp || props.settings.phones?.[0]}` : ''}
               {props.settings.email ? `\n${props.settings.email}` : ''}
             </Text>
           </View>

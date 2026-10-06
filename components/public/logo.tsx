@@ -25,10 +25,10 @@ export function Logo({
       {/* Native img keeps PNG alpha intact; next/image can paint dark fringe as black boxes. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/images/sermontiny/logo-oficial-nav.png"
+        src="/images/sermontiny/logo-oficial-nav.webp"
         alt="Sermontiny Montagens Industriais e Locações"
-        width={1006}
-        height={298}
+        width={560}
+        height={166}
         decoding="async"
         fetchPriority={inverted ? 'auto' : 'high'}
         className={cn(

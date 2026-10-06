@@ -63,6 +63,31 @@ export async function saveCustomer(formData: FormData) {
   redirect(`/admin/clientes/${data.id}`);
 }
 
+export async function updateCustomerStatus(id: string, status: 'active' | 'inactive') {
+  const user = await assertPermission('customers.write');
+  if (!id || (status !== 'active' && status !== 'inactive')) {
+    return { error: 'Status inválido.' };
+  }
+  const supabase = await createClient();
+  const { data: current } = await supabase.from('customers').select('status').eq('id', id).maybeSingle();
+  if (!current) return { error: 'Cliente não encontrado.' };
+  if (current.status === status) return { ok: true as const };
+
+  const { error } = await supabase.from('customers').update({ status }).eq('id', id);
+  if (error) return { error: error.message || 'Não foi possível atualizar o status.' };
+
+  await writeAuditLog({
+    actorId: user.id,
+    action: 'update',
+    entity: 'customers',
+    entityId: id,
+    metadata: { from: current.status, to: status, field: 'status' },
+  });
+  revalidatePath('/admin/clientes');
+  revalidatePath(`/admin/clientes/${id}`);
+  return { ok: true as const };
+}
+
 export async function softDeleteCustomer(id: string) {
   const user = await assertPermission('customers.delete');
   const supabase = await createClient();
@@ -73,7 +98,8 @@ export async function softDeleteCustomer(id: string) {
   if (error) return { error: 'Não foi possível excluir o cliente.' };
   await writeAuditLog({ actorId: user.id, action: 'soft_delete', entity: 'customers', entityId: id });
   revalidatePath('/admin/clientes');
-  redirect('/admin/clientes');
+  revalidatePath(`/admin/clientes/${id}`);
+  return { ok: true as const };
 }
 
 export async function saveCustomerUnit(formData: FormData) {

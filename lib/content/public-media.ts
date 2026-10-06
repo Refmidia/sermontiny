@@ -1,12 +1,16 @@
 export const PUBLIC_MEDIA = {
   hero: {
-    src: '/images/sermontiny/hero-fachada.png',
+    src: '/images/sermontiny/hero-fachada.webp',
     alt: 'Fachada da sede da Sermontiny em Tarumã, com o logo da engrenagem na parede azul',
     width: 680,
     height: 510,
   },
+  heroMark: {
+    src: '/images/sermontiny/logo-guindaste.webp',
+    alt: 'Sermontiny Montagens Industriais e Locações',
+  },
   about: {
-    src: '/images/sermontiny/empresa-equipe.png',
+    src: '/images/sermontiny/empresa-equipe.webp',
     alt: 'Equipe da Sermontiny em reunião de segurança em área industrial',
     width: 680,
     height: 510,

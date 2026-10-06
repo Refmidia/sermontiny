@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export function SettingsTabs({
   company,
-  users,
   documents,
   whatsapp,
   numbering,
@@ -12,7 +11,6 @@ export function SettingsTabs({
   security,
 }: {
   company: React.ReactNode;
-  users: React.ReactNode;
   documents: React.ReactNode;
   whatsapp: React.ReactNode;
   numbering: React.ReactNode;
@@ -23,7 +21,6 @@ export function SettingsTabs({
     <Tabs defaultValue="empresa" className="space-y-4">
       <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-paper-strong p-1">
         <TabsTrigger value="empresa">Empresa</TabsTrigger>
-        <TabsTrigger value="usuarios">Usuários</TabsTrigger>
         <TabsTrigger value="documentos">Documentos e PDFs</TabsTrigger>
         <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
         <TabsTrigger value="numeracao">Numeração</TabsTrigger>
@@ -32,9 +29,6 @@ export function SettingsTabs({
       </TabsList>
       <TabsContent forceMount value="empresa" className="data-[state=inactive]:hidden">
         {company}
-      </TabsContent>
-      <TabsContent forceMount value="usuarios" className="data-[state=inactive]:hidden">
-        {users}
       </TabsContent>
       <TabsContent forceMount value="documentos" className="data-[state=inactive]:hidden">
         {documents}

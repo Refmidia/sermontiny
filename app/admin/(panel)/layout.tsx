@@ -4,14 +4,20 @@ import { AdminShell } from '@/components/admin/admin-shell';
 
 export default async function AdminPanelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSession();
-  const supabase = await createClient();
-  const { data: leads } = await supabase
-    .from('leads')
-    .select('id, name, subject, created_at')
-    .eq('status', 'new')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(5);
+  let leads: { id: string; name: string; subject: string | null; created_at: string }[] = [];
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('leads')
+      .select('id, name, subject, created_at')
+      .eq('status', 'new')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    leads = data ?? [];
+  } catch {
+    leads = [];
+  }
 
   return (
     <AdminShell

@@ -9,6 +9,7 @@ export type QuoteDocumentModel = {
   number: string;
   version: number;
   issuedAt: string;
+  issuedTime: string;
   validUntil?: string | null;
   title: string;
   scope?: string | null;
@@ -35,6 +36,17 @@ export type QuoteDocumentModel = {
   pixKeyLabel?: string | null;
   pixQrSrc?: string | null;
 };
+
+function parseIssued(value: string) {
+  const date = new Date(value.includes('T') ? value : `${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return { date: formatDateBr(value), time: '' };
+  }
+  return {
+    date: new Intl.DateTimeFormat('pt-BR').format(date),
+    time: new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date),
+  };
+}
 
 export function formatDocumentLabel(value: string) {
   const digits = onlyDigits(value);
@@ -64,12 +76,14 @@ export function buildQuoteDocument(input: {
   items: QuoteItem[];
 }): QuoteDocumentModel {
   const { settings, version, customer } = input;
+  const issued = parseIssued(version.issued_at);
   return {
     settings,
     companyAddress: companyAddress(settings),
     number: input.number,
     version: version.version_number,
-    issuedAt: formatDateBr(version.issued_at),
+    issuedAt: issued.date,
+    issuedTime: issued.time,
     validUntil: version.valid_until ? formatDateBr(version.valid_until) : null,
     title: version.title,
     scope: version.scope,

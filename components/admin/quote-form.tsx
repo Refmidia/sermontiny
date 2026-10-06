@@ -6,14 +6,17 @@ import { saveQuote } from '@/app/actions/quotes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioCards } from '@/components/ui/radio-cards';
 import { FormActions } from '@/components/admin/form-actions';
 import { FormField, FormSection } from '@/components/admin/form-section';
 import { ContentCard } from '@/components/admin/content-card';
+import { PageActionBar } from '@/components/admin/page-action-bar';
 import { ADMIN_SELECT_CLASS } from '@/lib/admin-ui';
 import { calculateQuoteTotals, formatBRL, parseBRLInput, shouldRecommendMonthlyRate } from '@/lib/money';
 import { centsToExtenso } from '@/lib/extenso';
 import { ADDITIONAL_ITEMS, UNIT_LABELS, type Equipment, type QuoteItemUnit } from '@/types/database';
 import { cn } from '@/lib/utils';
+import { Plus } from 'lucide-react';
 
 type CustomerOption = { id: string; legal_name: string };
 type UnitOption = { id: string; customer_id: string; name: string };
@@ -203,35 +206,38 @@ export function QuoteForm({
         </FormSection>
 
         <FormSection title="3. Equipamentos e serviços">
-          <div className="flex flex-wrap gap-2 md:col-span-2">
-            <Button type="button" variant="outline" onClick={() => setItems((current) => [...current, emptyItem()])}>
-              Item
-            </Button>
-            <select
-              className={cn(ADMIN_SELECT_CLASS, 'w-auto min-w-48')}
-              onChange={(event) => {
-                const extra = ADDITIONAL_ITEMS.find((item) => item.code === event.target.value);
-                if (!extra) return;
-                setItems((current) => [
-                  ...current,
-                  {
-                    ...emptyItem(),
-                    kind: 'additional',
-                    additional_code: extra.code,
-                    description: extra.label,
-                    unit: extra.unit,
-                  },
-                ]);
-                event.target.value = '';
-              }}
-            >
-              <option value="">Adicional</option>
-              {ADDITIONAL_ITEMS.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
+          <div className="md:col-span-2">
+            <PageActionBar>
+              <Button type="button" variant="gold" onClick={() => setItems((current) => [...current, emptyItem()])}>
+                <Plus />
+                Item
+              </Button>
+              <select
+                className={cn(ADMIN_SELECT_CLASS, 'w-auto min-w-48')}
+                onChange={(event) => {
+                  const extra = ADDITIONAL_ITEMS.find((item) => item.code === event.target.value);
+                  if (!extra) return;
+                  setItems((current) => [
+                    ...current,
+                    {
+                      ...emptyItem(),
+                      kind: 'additional',
+                      additional_code: extra.code,
+                      description: extra.label,
+                      unit: extra.unit,
+                    },
+                  ]);
+                  event.target.value = '';
+                }}
+              >
+                <option value="">Adicional</option>
+                {ADDITIONAL_ITEMS.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </PageActionBar>
           </div>
           <div className="space-y-4 md:col-span-2">
             {items.map((item, index) => {
@@ -241,6 +247,32 @@ export function QuoteForm({
                 shouldRecommendMonthlyRate(parseBRLInput(item.unit_price_reais), parseBRLInput(item.monthly_reais), qty);
               return (
                 <div key={index} className="grid gap-2 rounded-xl border border-border p-3 md:grid-cols-6">
+                  <div className="md:col-span-6">
+                    <RadioCards
+                      value={item.kind}
+                      columns={3}
+                      onChange={(kind) =>
+                        setItems((current) =>
+                          current.map((row, rowIndex) =>
+                            rowIndex === index
+                              ? {
+                                  ...row,
+                                  kind: kind as ItemState['kind'],
+                                  equipment_id: kind === 'equipment' ? row.equipment_id : '',
+                                  additional_code: kind === 'additional' ? row.additional_code : '',
+                                }
+                              : row,
+                          ),
+                        )
+                      }
+                      options={[
+                        { value: 'equipment', label: 'Equipamento' },
+                        { value: 'service', label: 'Serviço' },
+                        { value: 'additional', label: 'Adicional' },
+                      ]}
+                    />
+                  </div>
+                  {item.kind === 'equipment' ? (
                   <select
                     className={cn(ADMIN_SELECT_CLASS, 'md:col-span-2')}
                     value={item.equipment_id}
@@ -252,6 +284,7 @@ export function QuoteForm({
                             ? {
                                 ...row,
                                 equipment_id: event.target.value,
+                                kind: 'equipment',
                                 description: selected?.name ?? row.description,
                                 unit_price_reais: selected
                                   ? (selected.daily_cents / 100).toFixed(2).replace('.', ',')
@@ -272,6 +305,7 @@ export function QuoteForm({
                       </option>
                     ))}
                   </select>
+                  ) : null}
                   <Input
                     value={item.description}
                     onChange={(event) =>
@@ -282,7 +316,7 @@ export function QuoteForm({
                       )
                     }
                     placeholder="Descrição"
-                    className="md:col-span-2"
+                    className={item.kind === 'equipment' ? 'md:col-span-2' : 'md:col-span-3'}
                   />
                   <select
                     className={ADMIN_SELECT_CLASS}

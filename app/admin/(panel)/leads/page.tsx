@@ -1,30 +1,31 @@
 import { requirePermission } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
-import { PageHeader } from '@/components/admin/page-header';
-import { LeadsBoard } from '@/components/admin/leads-board';
-import type { Lead } from '@/types/database';
+import { LeadsBoard, type LeadRow } from '@/components/admin/leads-board';
 
 export const dynamic = 'force-dynamic';
 
-type LeadRow = Lead & { equipment?: { name: string } | { name: string }[] | null };
-
 export default async function LeadsPage() {
-  await requirePermission('leads.read');
+  const user = await requirePermission('leads.read');
+  const canWrite = user.permissions.includes('leads.write');
   const supabase = await createClient();
-  const { data } = await supabase
+
+  let rows: LeadRow[] = [];
+  const withAssignee = await supabase
     .from('leads')
-    .select('*, equipment(name)')
+    .select('*, equipment(name), assignee:assigned_to(full_name, roles(name))')
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
-  return (
-    <div>
-      <PageHeader
-        title="Contatos"
-        description="Acompanhe solicitações recebidas pelo site institucional."
-        crumbs={[{ href: '/admin', label: 'Painel' }, { label: 'Contatos' }]}
-      />
-      <LeadsBoard data={(data ?? []) as LeadRow[]} />
-    </div>
-  );
+  if (withAssignee.error) {
+    const fallback = await supabase
+      .from('leads')
+      .select('*, equipment(name)')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+    rows = (fallback.data ?? []) as LeadRow[];
+  } else {
+    rows = (withAssignee.data ?? []) as LeadRow[];
+  }
+
+  return <LeadsBoard data={rows} canWrite={canWrite} />;
 }

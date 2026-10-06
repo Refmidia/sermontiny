@@ -1,11 +1,12 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { PUBLIC_EQUIPMENT_TAG } from '@/lib/data/equipment';
 import { equipmentSchema } from '@/lib/validations/common';
 import { emptyToNull, parseMoneyField, parseOptionalNumber, uniqueSlug } from '@/lib/forms';
 import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
@@ -13,6 +14,7 @@ import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
 const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
 
 function revalidateEquipment(id?: string) {
+  updateTag(PUBLIC_EQUIPMENT_TAG);
   revalidatePath('/');
   revalidatePath('/admin/equipamentos');
   revalidatePath('/equipamentos');
@@ -41,13 +43,19 @@ async function storeEquipmentPhoto(file: File): Promise<{ path: string } | { err
     const admin = createAdminClient();
     const { error } = await admin.storage.from('equipment').upload(path, file, options);
     if (!error) return { path };
-  } catch {
-    // Cai no client autenticado se a service role não estiver no ambiente.
+    return { error: error.message || 'Não foi possível enviar a foto.' };
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : '';
+    if (message.includes('não configurada') || message.includes('not configur')) {
+      // Cai no client autenticado se a service role não estiver no ambiente.
+    } else {
+      return { error: 'Não foi possível enviar a foto.' };
+    }
   }
 
   const supabase = await createClient();
   const { error } = await supabase.storage.from('equipment').upload(path, file, options);
-  if (error) return { error: 'Não foi possível enviar a foto.' };
+  if (error) return { error: error.message || 'Não foi possível enviar a foto.' };
   return { path };
 }
 
@@ -167,7 +175,7 @@ export async function uploadEquipmentPhoto(formData: FormData) {
   const supabase = await createClient();
   const { data: current } = await supabase.from('equipment').select('photo_path').eq('id', id).maybeSingle();
   const { error } = await supabase.from('equipment').update({ photo_path: stored.path }).eq('id', id);
-  if (error) return { error: 'Não foi possível salvar a foto.' };
+  if (error) return { error: error.message || 'Não foi possível salvar a foto.' };
 
   if (current?.photo_path) {
     const admin = createAdminClient();
@@ -192,6 +200,31 @@ export async function removeEquipmentPhoto(id: string) {
   }
 
   await writeAuditLog({ actorId: user.id, action: 'update', entity: 'equipment', entityId: id, metadata: { photo: false } });
+  revalidateEquipment(id);
+  return { ok: true as const };
+}
+
+export async function updateEquipmentStatus(id: string, status: 'available' | 'rented' | 'maintenance' | 'inactive') {
+  const user = await assertPermission('equipment.write');
+  const allowed = ['available', 'rented', 'maintenance', 'inactive'] as const;
+  if (!id || !allowed.includes(status)) {
+    return { error: 'Status inválido.' };
+  }
+  const supabase = await createClient();
+  const { data: current } = await supabase.from('equipment').select('status').eq('id', id).maybeSingle();
+  if (!current) return { error: 'Equipamento não encontrado.' };
+  if (current.status === status) return { ok: true as const };
+
+  const { error } = await supabase.from('equipment').update({ status }).eq('id', id);
+  if (error) return { error: error.message || 'Não foi possível atualizar o status.' };
+
+  await writeAuditLog({
+    actorId: user.id,
+    action: 'update',
+    entity: 'equipment',
+    entityId: id,
+    metadata: { from: current.status, to: status, field: 'status' },
+  });
   revalidateEquipment(id);
   return { ok: true as const };
 }

@@ -422,3 +422,33 @@ export async function createQuoteVersion(quoteId: string) {
   revalidatePath(`/admin/orcamentos/${quoteId}`);
   return { ok: true as const };
 }
+
+export async function softDeleteQuote(quoteId: string) {
+  const user = await assertPermission('quotes.delete');
+  if (!quoteId) return { error: 'Orçamento inválido.' };
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const admin = createAdminClient();
+  const { data: quote } = await admin
+    .from('quotes')
+    .select('id')
+    .eq('id', quoteId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!quote) return { error: 'Orçamento não encontrado.' };
+
+  const { error } = await admin
+    .from('quotes')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', quoteId);
+  if (error) return { error: error.message || 'Não foi possível excluir o orçamento.' };
+
+  await writeAuditLog({
+    actorId: user.id,
+    action: 'soft_delete',
+    entity: 'quotes',
+    entityId: quoteId,
+  });
+  revalidatePath('/admin/orcamentos');
+  revalidatePath(`/admin/orcamentos/${quoteId}`);
+  return { ok: true as const };
+}

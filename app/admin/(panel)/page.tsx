@@ -1,8 +1,19 @@
 import Link from 'next/link';
-import { CircleDollarSign, FileCheck2, FileSignature, Percent } from 'lucide-react';
+import {
+  ArrowRight,
+  CircleDollarSign,
+  ClipboardList,
+  FileCheck2,
+  FileSignature,
+  Percent,
+  Plus,
+  Truck,
+  UserPlus,
+} from 'lucide-react';
 import { requirePermission } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/admin/page-header';
+import { PageActionBar } from '@/components/admin/page-action-bar';
 import { StatCard } from '@/components/admin/stat-card';
 import { ContentCard } from '@/components/admin/content-card';
 import { EmptyState } from '@/components/admin/empty-state';
@@ -16,7 +27,9 @@ import { type QuoteStatus } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
 
-function versionOf(row: { quote_versions: { total_cents?: number; status?: string } | { total_cents?: number; status?: string }[] | null }) {
+function versionOf(row: {
+  quote_versions: { total_cents?: number; status?: string } | { total_cents?: number; status?: string }[] | null;
+}) {
   return Array.isArray(row.quote_versions) ? row.quote_versions[0] : row.quote_versions;
 }
 
@@ -30,24 +43,80 @@ function isApproved(status: string, versionStatus?: string) {
 
 export default async function DashboardPage() {
   await requirePermission('dashboard.read');
-  const supabase = await createClient();
   const now = new Date();
   const currentKey = monthKey(now);
   const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const previousKey = monthKey(previous);
 
-  const [quotes, contracts, recentQuotes, datedQuotes, topItems] = await Promise.all([
-    supabase.from('quotes').select('id, status, created_at, quote_versions:current_version_id(total_cents, status)').is('deleted_at', null),
-    supabase.from('contracts').select('id, status, total_cents, created_at').is('deleted_at', null),
-    supabase
-      .from('quotes')
-      .select('id, number, title, status, created_at, customers(legal_name)')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(6),
-    supabase.from('quotes').select('created_at, status, quote_versions:current_version_id(total_cents, status)').is('deleted_at', null),
-    supabase.from('quote_items').select('description, equipment_id, equipment(name)').limit(200),
-  ]);
+  let quotes: {
+    data:
+      | {
+          id: string;
+          status: string;
+          created_at: string;
+          quote_versions: { total_cents?: number; status?: string } | { total_cents?: number; status?: string }[] | null;
+        }[]
+      | null;
+    error: unknown;
+  } = { data: [], error: null };
+  let contracts: { data: { id: string; status: string; total_cents: number; created_at: string }[] | null } = { data: [] };
+  let recentQuotes: {
+    data:
+      | {
+          id: string;
+          number: string;
+          title: string;
+          status: string;
+          created_at: string;
+          customers: { legal_name?: string } | { legal_name?: string }[] | null;
+        }[]
+      | null;
+    error: unknown;
+  } = { data: [], error: null };
+  let datedQuotes: {
+    data:
+      | {
+          created_at: string;
+          status: string;
+          quote_versions: { total_cents?: number; status?: string } | { total_cents?: number; status?: string }[] | null;
+        }[]
+      | null;
+  } = { data: [] };
+  let topItems: {
+    data: { description: string; equipment_id: string | null; equipment: { name?: string } | { name?: string }[] | null }[] | null;
+  } = { data: [] };
+  let newLeads = 0;
+  let customersCount = 0;
+
+  try {
+    const supabase = await createClient();
+    const results = await Promise.all([
+      supabase.from('quotes').select('id, status, created_at, quote_versions:current_version_id(total_cents, status)').is('deleted_at', null),
+      supabase.from('contracts').select('id, status, total_cents, created_at').is('deleted_at', null),
+      supabase
+        .from('quotes')
+        .select('id, number, title, status, created_at, customers(legal_name)')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(8),
+      supabase.from('quote_items').select('description, equipment_id, equipment(name)').limit(200),
+      supabase.from('leads').select('id', { count: 'exact', head: true }).eq('status', 'new').is('deleted_at', null),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+    ]);
+    quotes = results[0];
+    contracts = results[1];
+    recentQuotes = results[2];
+    datedQuotes = { data: results[0].data };
+    topItems = results[3];
+    newLeads = results[4].count ?? 0;
+    customersCount = results[5].count ?? 0;
+  } catch {
+    quotes = { data: [], error: null };
+    contracts = { data: [] };
+    recentQuotes = { data: [], error: null };
+    datedQuotes = { data: [] };
+    topItems = { data: [] };
+  }
 
   const quoteRows = quotes.data ?? [];
   const contractRows = contracts.data ?? [];
@@ -76,7 +145,9 @@ export default async function DashboardPage() {
     contractRows.filter((row) => row.status === 'active' && monthKey(new Date(row.created_at)) === key).length;
   const monthIssued = (key: string) => (datedQuotes.data ?? []).filter((row) => monthKey(new Date(row.created_at)) === key).length;
   const monthApprovedCount = (key: string) =>
-    (datedQuotes.data ?? []).filter((row) => monthKey(new Date(row.created_at)) === key && isApproved(row.status, versionOf(row)?.status)).length;
+    (datedQuotes.data ?? []).filter(
+      (row) => monthKey(new Date(row.created_at)) === key && isApproved(row.status, versionOf(row)?.status),
+    ).length;
 
   const prevQuoted = monthQuoted(previousKey);
   const prevApproved = monthApproved(previousKey);
@@ -114,9 +185,13 @@ export default async function DashboardPage() {
   }
   const donut = [
     { name: 'Aprovados', value: (statusCounts.get('approved') ?? 0) + (statusCounts.get('converted') ?? 0), color: '#071B35' },
-    { name: 'Em análise', value: (statusCounts.get('in_review') ?? 0) + (statusCounts.get('sent') ?? 0) + (statusCounts.get('viewed') ?? 0), color: '#D6A72C' },
+    {
+      name: 'Em análise',
+      value: (statusCounts.get('in_review') ?? 0) + (statusCounts.get('sent') ?? 0) + (statusCounts.get('viewed') ?? 0),
+      color: '#174A7E',
+    },
     { name: 'Recusados', value: statusCounts.get('rejected') ?? 0, color: '#66758A' },
-    { name: 'Rascunho', value: statusCounts.get('draft') ?? 0, color: '#DDE4EC' },
+    { name: 'Rascunho', value: statusCounts.get('draft') ?? 0, color: '#C5D0DC' },
   ].filter((item) => item.value > 0);
 
   const counts = new Map<string, number>();
@@ -125,33 +200,50 @@ export default async function DashboardPage() {
     const name = equipment?.name || item.description;
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }
-  const topEquipment = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count }));
+  const topEquipment = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
 
   const recent = recentQuotes.error ? [] : (recentQuotes.data ?? []);
   const hasQuotes = issued > 0;
+  const monthLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Visão geral"
-        description="Acompanhe orçamentos, conversão e contratos com os dados reais da operação."
+        description="Painel operacional da Sermontiny — orçamentos, conversão e contratos em tempo real."
         crumbs={[{ href: '/admin', label: 'Painel' }, { label: 'Visão geral' }]}
         actions={
-          <>
+          <PageActionBar>
             <Button asChild variant="outline">
-              <Link href="/admin/clientes/novo">Novo cliente</Link>
+              <Link href="/admin/clientes/novo">
+                <UserPlus />
+                Novo cliente
+              </Link>
             </Button>
-            <Button asChild>
-              <Link href="/admin/orcamentos/novo">Novo orçamento</Link>
+            <Button asChild className="bg-navy text-white hover:bg-navy/90">
+              <Link href="/admin/orcamentos/novo">
+                <Plus />
+                Novo orçamento
+              </Link>
             </Button>
-          </>
+          </PageActionBar>
         }
       />
+
+      <div className="grid gap-3 rounded-[14px] border border-border bg-white p-4 shadow-panel sm:grid-cols-3">
+        <QuickStat href="/admin/leads" icon={ClipboardList} label="Contatos novos" value={String(newLeads)} />
+        <QuickStat href="/admin/clientes" icon={UserPlus} label="Clientes cadastrados" value={String(customersCount)} />
+        <QuickStat href="/admin/orcamentos" icon={FileCheck2} label="Orçamentos no mês" value={String(monthIssued(currentKey))} />
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           featured
           label="Total orçado"
+          hint="Carteira completa"
           value={formatBRL(quotedTotal)}
           icon={CircleDollarSign}
           tooltip="Soma do valor da versão atual de todos os orçamentos não excluídos."
@@ -159,6 +251,7 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Total aprovado"
+          hint="Aprovado ou convertido"
           value={formatBRL(approvedTotal)}
           icon={FileCheck2}
           tooltip="Soma dos orçamentos com status aprovado ou convertido em contrato."
@@ -166,6 +259,7 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Contratos ativos"
+          hint="Em vigência"
           value={String(activeContracts)}
           icon={FileSignature}
           tooltip="Contratos com status ativo no momento."
@@ -173,6 +267,7 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Taxa de conversão"
+          hint="Aprovados ÷ total"
           value={`${conversion.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`}
           icon={Percent}
           tooltip="Orçamentos aprovados ou convertidos dividido pelo total de orçamentos."
@@ -180,11 +275,11 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-5">
+      <div className="grid gap-5 xl:grid-cols-5">
         <ContentCard
           className="xl:col-span-3"
           title="Desempenho de orçamentos"
-          description="Valor orçado e aprovado nos últimos seis meses."
+          description={`Evolução dos últimos 6 meses · referência ${monthLabel}.`}
         >
           {hasQuotes ? (
             <QuotePerformanceChart data={monthly.map(({ month, quoted, approved }) => ({ month, quoted, approved }))} />
@@ -193,7 +288,7 @@ export default async function DashboardPage() {
               title="Ainda não há orçamentos"
               text="Os gráficos aparecem quando existir pelo menos um orçamento cadastrado."
               action={
-                <Button asChild>
+                <Button asChild className="bg-navy text-white hover:bg-navy/90">
                   <Link href="/admin/orcamentos/novo">Criar primeiro orçamento</Link>
                 </Button>
               }
@@ -209,13 +304,17 @@ export default async function DashboardPage() {
         </ContentCard>
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-5">
+      <div className="grid gap-5 xl:grid-cols-5">
         <ContentCard
           className="xl:col-span-3"
           title="Orçamentos recentes"
+          description="Últimas propostas comerciais cadastradas."
           actions={
             <Button asChild variant="outline" size="sm">
-              <Link href="/admin/orcamentos">Ver todos</Link>
+              <Link href="/admin/orcamentos">
+                Ver todos
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </Button>
           }
         >
@@ -224,38 +323,40 @@ export default async function DashboardPage() {
               title="Nenhum orçamento recente"
               text="Crie a primeira proposta comercial para começar o acompanhamento."
               action={
-                <Button asChild>
+                <Button asChild className="bg-navy text-white hover:bg-navy/90">
                   <Link href="/admin/orcamentos/novo">Criar primeiro orçamento</Link>
                 </Button>
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-border">
+            <div className="overflow-hidden rounded-[12px] border border-border">
               <table className="w-full text-sm">
-                <thead className="bg-paper-strong text-left text-[12px] text-muted">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Nº</th>
-                    <th className="px-3 py-2 font-semibold">Cliente</th>
-                    <th className="px-3 py-2 font-semibold">Status</th>
-                    <th className="px-3 py-2 font-semibold">Data</th>
+                <thead>
+                  <tr className="bg-navy text-left text-[11px] tracking-wide text-white uppercase">
+                    <th className="px-3.5 py-2.5 font-semibold">Nº</th>
+                    <th className="px-3.5 py-2.5 font-semibold">Cliente</th>
+                    <th className="px-3.5 py-2.5 font-semibold">Status</th>
+                    <th className="px-3.5 py-2.5 font-semibold">Data</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recent.map((quote) => {
                     const customer = Array.isArray(quote.customers) ? quote.customers[0] : quote.customers;
                     return (
-                      <tr key={quote.id} className="border-t border-border">
-                        <td className="px-3 py-3">
-                          <Link href={`/admin/orcamentos/${quote.id}`} className="font-medium text-navy hover:underline">
+                      <tr key={quote.id} className="border-t border-border bg-white hover:bg-paper/70">
+                        <td className="px-3.5 py-3 align-middle">
+                          <Link href={`/admin/orcamentos/${quote.id}`} className="font-semibold text-navy hover:underline">
                             {quote.number}
                           </Link>
-                          <span className="block text-[12px] text-muted">{quote.title}</span>
+                          <span className="mt-0.5 block truncate text-[12px] text-muted">{quote.title}</span>
                         </td>
-                        <td className="px-3 py-3">{customer?.legal_name ?? '—'}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-3.5 py-3 align-middle text-navy">{customer?.legal_name ?? '—'}</td>
+                        <td className="px-3.5 py-3 align-middle">
                           <QuoteStatusBadge status={quote.status as QuoteStatus} />
                         </td>
-                        <td className="px-3 py-3 text-muted">{formatDateBr(quote.created_at.slice(0, 10))}</td>
+                        <td className="px-3.5 py-3 align-middle whitespace-nowrap text-muted">
+                          {formatDateBr(quote.created_at.slice(0, 10))}
+                        </td>
                       </tr>
                     );
                   })}
@@ -264,7 +365,20 @@ export default async function DashboardPage() {
             </div>
           )}
         </ContentCard>
-        <ContentCard className="xl:col-span-2" title="Equipamentos mais solicitados">
+
+        <ContentCard
+          className="xl:col-span-2"
+          title="Equipamentos mais solicitados"
+          description="Ranking pelos itens usados em orçamentos."
+          actions={
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/equipamentos">
+                <Truck className="h-3.5 w-3.5" />
+                Frota
+              </Link>
+            </Button>
+          }
+        >
           {topEquipment.length === 0 ? (
             <EmptyState title="Sem itens suficientes" text="Os equipamentos aparecem após o uso em orçamentos." />
           ) : (
@@ -273,5 +387,33 @@ export default async function DashboardPage() {
         </ContentCard>
       </div>
     </div>
+  );
+}
+
+function QuickStat({
+  href,
+  icon: Icon,
+  label,
+  value,
+}: {
+  href: string;
+  icon: typeof ClipboardList;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 transition hover:border-border hover:bg-paper"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-info-soft text-info">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[12px] text-muted">{label}</p>
+        <p className="text-lg font-bold tabular-nums text-navy">{value}</p>
+      </div>
+      <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-muted" />
+    </Link>
   );
 }

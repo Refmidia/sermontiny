@@ -9,8 +9,8 @@ import {
   Inbox,
   LogOut,
   Settings,
-  Shield,
   Truck,
+  UserCog,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -42,7 +42,7 @@ const GROUPS: NavGroup[] = [
   {
     label: 'Gestão',
     items: [
-      { href: '/admin/auditoria', label: 'Auditoria', icon: Shield, permission: 'audit.read' },
+      { href: '/admin/usuarios', label: 'Usuários', icon: UserCog, permission: 'users.read' },
       { href: '/admin/configuracoes', label: 'Configurações', icon: Settings, permission: 'settings.read' },
     ],
   },
@@ -54,6 +54,7 @@ export function AdminSidebar({
   name,
   roleName,
   variant = 'desktop',
+  showBrand = true,
   onNavigate,
 }: {
   collapsed: boolean;
@@ -61,6 +62,7 @@ export function AdminSidebar({
   name: string;
   roleName: string | null;
   variant?: 'desktop' | 'drawer';
+  showBrand?: boolean;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -69,15 +71,17 @@ export function AdminSidebar({
   return (
     <aside
       className={cn(
-        'flex h-dvh min-h-0 flex-col overflow-hidden bg-navy text-white',
-        variant === 'desktop' && 'hidden lg:flex',
+        'flex min-h-0 flex-col overflow-hidden bg-navy text-white',
+        variant === 'desktop' && 'hidden h-full lg:flex',
         variant === 'desktop' && (compact ? 'w-20' : 'w-[272px]'),
-        variant === 'drawer' && 'w-full',
+        variant === 'drawer' && 'h-dvh w-full',
       )}
     >
-      <div className={cn('flex shrink-0 items-center justify-center border-b border-white/10', compact ? 'px-3 py-5' : 'px-4 py-5')}>
-        <AdminLogo compact={compact} inverted href="/admin" />
-      </div>
+      {showBrand ? (
+        <div className={cn('flex h-16 shrink-0 items-center justify-center border-b border-white/10', compact ? 'px-3' : 'px-4')}>
+          <AdminLogo compact={compact} inverted href="/admin" />
+        </div>
+      ) : null}
 
       <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4" aria-label="Administrativo">
         {GROUPS.map((group) => {

@@ -4,12 +4,13 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveCustomer } from '@/app/actions/customers';
 import { lookupCepAction, lookupCnpjAction } from '@/app/actions/lookups';
+import { fetchCep, fetchCnpj, isLookupError } from '@/lib/lookups/br-registry';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioCards } from '@/components/ui/radio-cards';
 import { FormActions } from '@/components/admin/form-actions';
 import { FormField, FormSection } from '@/components/admin/form-section';
-import { ADMIN_SELECT_CLASS } from '@/lib/admin-ui';
 import { formatCep, formatDocument, onlyDigits } from '@/lib/format';
 import type { Customer, PersonType } from '@/types/database';
 
@@ -68,16 +69,44 @@ export function CustomerForm({ customer }: { customer?: Customer }) {
     setValues((current) => ({ ...current, ...next }));
   }
 
+  async function lookupCnpj(digits: string) {
+    try {
+      const local = await fetchCnpj(digits);
+      if (!isLookupError(local)) return local;
+    } catch {
+      // Cai na action do servidor.
+    }
+    try {
+      return await lookupCnpjAction(digits);
+    } catch {
+      return { error: 'Não foi possível consultar o CNPJ agora.' };
+    }
+  }
+
+  async function lookupCep(digits: string) {
+    try {
+      const local = await fetchCep(digits);
+      if (!isLookupError(local)) return local;
+    } catch {
+      // Cai na action do servidor.
+    }
+    try {
+      return await lookupCepAction(digits);
+    } catch {
+      return { error: 'Não foi possível consultar o CEP agora.' };
+    }
+  }
+
   async function fillFromCnpj(raw: string) {
     const digits = onlyDigits(raw);
-    if (digits.length !== 14 || digits === lastCnpj.current) return;
+    if (digits.length !== 14 || digits === lastCnpj.current || lookingCnpj) return;
     lastCnpj.current = digits;
     setLookingCnpj(true);
     setLookupMessage('Consultando CNPJ...');
     setError(null);
-    const result = await lookupCnpjAction(digits);
+    const result = await lookupCnpj(digits);
     setLookingCnpj(false);
-    if ('error' in result) {
+    if (isLookupError(result)) {
       lastCnpj.current = '';
       setLookupMessage(null);
       setError(result.error);
@@ -91,28 +120,28 @@ export function CustomerForm({ customer }: { customer?: Customer }) {
       trade_name: result.tradeName,
       email: result.email || current.email,
       phone: result.phone || current.phone,
-      zip: result.zip,
-      street: result.street,
-      number: result.number,
-      complement: result.complement,
-      district: result.district,
-      city: result.city,
-      state: result.state,
+      zip: result.zip || current.zip,
+      street: result.street || current.street,
+      number: result.number || current.number,
+      complement: result.complement || current.complement,
+      district: result.district || current.district,
+      city: result.city || current.city,
+      state: result.state || current.state,
     }));
-    lastCep.current = onlyDigits(result.zip);
+    if (onlyDigits(result.zip).length === 8) lastCep.current = onlyDigits(result.zip);
     setLookupMessage('Dados do CNPJ preenchidos. Confira e complete o que faltar.');
   }
 
   async function fillFromCep(raw: string) {
     const digits = onlyDigits(raw);
-    if (digits.length !== 8 || digits === lastCep.current) return;
+    if (digits.length !== 8 || digits === lastCep.current || lookingCep) return;
     lastCep.current = digits;
     setLookingCep(true);
     setLookupMessage('Consultando CEP...');
     setError(null);
-    const result = await lookupCepAction(digits);
+    const result = await lookupCep(digits);
     setLookingCep(false);
-    if ('error' in result) {
+    if (isLookupError(result)) {
       lastCep.current = '';
       setLookupMessage(null);
       setError(result.error);
@@ -142,30 +171,32 @@ export function CustomerForm({ customer }: { customer?: Customer }) {
     <form action={onSubmit} className="space-y-4">
       {customer && <input type="hidden" name="id" value={customer.id} />}
       <FormSection title="Dados principais">
-        <FormField label="Tipo" required>
-          <select
-            name="person_type"
+        <FormField label="Tipo" required className="md:col-span-2">
+          <input type="hidden" name="person_type" value={values.person_type} />
+          <RadioCards
             value={values.person_type}
-            onChange={(event) => {
-              const person_type = event.target.value as PersonType;
-              patch({ person_type, document: formatDocument(values.document, person_type) });
-            }}
-            className={ADMIN_SELECT_CLASS}
-          >
-            <option value="pj">Pessoa jurídica</option>
-            <option value="pf">Pessoa física</option>
-          </select>
+            onChange={(person_type) =>
+              patch({
+                person_type: person_type as PersonType,
+                document: formatDocument(values.document, person_type as PersonType),
+              })
+            }
+            options={[
+              { value: 'pj', label: 'Pessoa jurídica', description: 'CNPJ e razão social.' },
+              { value: 'pf', label: 'Pessoa física', description: 'CPF e nome completo.' },
+            ]}
+          />
         </FormField>
-        <FormField label="Status">
-          <select
-            name="status"
+        <FormField label="Status" className="md:col-span-2">
+          <input type="hidden" name="status" value={values.status} />
+          <RadioCards
             value={values.status}
-            onChange={(event) => patch({ status: event.target.value as 'active' | 'inactive' })}
-            className={ADMIN_SELECT_CLASS}
-          >
-            <option value="active">Ativo</option>
-            <option value="inactive">Inativo</option>
-          </select>
+            onChange={(status) => patch({ status: status as 'active' | 'inactive' })}
+            options={[
+              { value: 'active', label: 'Ativo', description: 'Cliente disponível para orçamentos.' },
+              { value: 'inactive', label: 'Inativo', description: 'Mantém o cadastro sem uso operacional.' },
+            ]}
+          />
         </FormField>
         <FormField label="Razão social / Nome" required>
           <Input
@@ -191,23 +222,38 @@ export function CustomerForm({ customer }: { customer?: Customer }) {
               : 'Digite o CNPJ completo para preencher automaticamente razão social, endereço e contato.'
           }
         >
-          <Input
-            name="document"
-            value={values.document}
-            inputMode="numeric"
-            autoComplete="off"
-            required
-            onChange={(event) => {
-              const next = formatDocument(event.target.value, values.person_type);
-              patch({ document: next });
-              if (values.person_type === 'pj' && onlyDigits(next).length === 14) {
-                void fillFromCnpj(next);
-              }
-            }}
-            onBlur={(event) => {
-              if (values.person_type === 'pj') void fillFromCnpj(event.target.value);
-            }}
-          />
+          <div className="flex gap-2">
+            <Input
+              name="document"
+              value={values.document}
+              inputMode="numeric"
+              autoComplete="off"
+              required
+              onChange={(event) => {
+                const next = formatDocument(event.target.value, values.person_type);
+                patch({ document: next });
+                if (values.person_type === 'pj' && onlyDigits(next).length === 14) {
+                  void fillFromCnpj(next);
+                }
+              }}
+              onBlur={(event) => {
+                if (values.person_type === 'pj') void fillFromCnpj(event.target.value);
+              }}
+            />
+            {values.person_type === 'pj' && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={lookingCnpj || onlyDigits(values.document).length !== 14}
+                onClick={() => {
+                  lastCnpj.current = '';
+                  void fillFromCnpj(values.document);
+                }}
+              >
+                {lookingCnpj ? 'Buscando...' : 'Buscar'}
+              </Button>
+            )}
+          </div>
         </FormField>
         <FormField label="Inscrição estadual">
           <Input
@@ -249,18 +295,31 @@ export function CustomerForm({ customer }: { customer?: Customer }) {
           label="CEP"
           hint={lookingCep ? 'Consultando CEP...' : 'Digite o CEP completo para preencher rua, bairro, cidade e estado.'}
         >
-          <Input
-            name="zip"
-            value={values.zip}
-            inputMode="numeric"
-            autoComplete="postal-code"
-            onChange={(event) => {
-              const next = formatCep(event.target.value);
-              patch({ zip: next });
-              if (onlyDigits(next).length === 8) void fillFromCep(next);
-            }}
-            onBlur={(event) => void fillFromCep(event.target.value)}
-          />
+          <div className="flex gap-2">
+            <Input
+              name="zip"
+              value={values.zip}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              onChange={(event) => {
+                const next = formatCep(event.target.value);
+                patch({ zip: next });
+                if (onlyDigits(next).length === 8) void fillFromCep(next);
+              }}
+              onBlur={(event) => void fillFromCep(event.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={lookingCep || onlyDigits(values.zip).length !== 8}
+              onClick={() => {
+                lastCep.current = '';
+                void fillFromCep(values.zip);
+              }}
+            >
+              {lookingCep ? 'Buscando...' : 'Buscar'}
+            </Button>
+          </div>
         </FormField>
         <FormField label="Endereço">
           <Input name="street" value={values.street} onChange={(event) => patch({ street: event.target.value })} />

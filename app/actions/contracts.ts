@@ -19,9 +19,23 @@ const REQUIRED_PARTIES = [
   'rigging_party',
 ] as const;
 
-export async function convertQuoteToContract(quoteId: string) {
+/** Cria (ou reabre) o contrato a partir do orçamento. Aprova automaticamente se ainda não estiver aprovado. */
+export async function createContractFromQuote(quoteId: string) {
   const user = await assertPermission('contracts.write');
   const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from('contracts')
+    .select('id')
+    .eq('quote_id', quoteId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existing?.id) {
+    return { contractId: existing.id as string };
+  }
+
   const { data: quote } = await supabase
     .from('quotes')
     .select('*, quote_versions:current_version_id(*)')
@@ -29,8 +43,19 @@ export async function convertQuoteToContract(quoteId: string) {
     .single();
   const version = Array.isArray(quote?.quote_versions) ? quote?.quote_versions[0] : quote?.quote_versions;
   if (!quote || !version) return { error: 'Orçamento não encontrado.' };
-  if (version.status !== 'approved' && quote.status !== 'approved') {
-    return { error: 'Somente orçamentos aprovados podem virar contrato.' };
+  if (quote.status === 'converted') {
+    return { error: 'Este orçamento já foi convertido, mas o contrato não foi encontrado.' };
+  }
+
+  const isApproved = version.status === 'approved' || quote.status === 'approved';
+  if (!isApproved) {
+    await supabase
+      .from('quote_versions')
+      .update({ status: 'approved', locked: true })
+      .eq('id', version.id);
+    await supabase.from('quotes').update({ status: 'approved' }).eq('id', quote.id);
+    version.status = 'approved';
+    quote.status = 'approved';
   }
 
   const { data: numberData, error: numberError } = await supabase.rpc('next_document_number', {
@@ -46,7 +71,7 @@ export async function convertQuoteToContract(quoteId: string) {
       quote_version_id: version.id,
       customer_id: quote.customer_id,
       unit_id: quote.unit_id,
-      object: version.title,
+      object: version.title || quote.title,
       scope: version.scope,
       starts_on: version.start_date,
       ends_on: version.end_date,
@@ -58,14 +83,16 @@ export async function convertQuoteToContract(quoteId: string) {
     })
     .select('id')
     .single();
-  if (error || !contract) return { error: 'Não foi possível criar o contrato.' };
+  if (error || !contract) {
+    return { error: error?.message || 'Não foi possível criar o contrato.' };
+  }
 
   const { data: contractVersion } = await supabase
     .from('contract_versions')
     .insert({
       contract_id: contract.id,
       version_number: 1,
-      object: version.title,
+      object: version.title || quote.title,
       scope: version.scope,
       payment_terms: version.payment_terms,
       total_cents: version.total_cents,
@@ -97,7 +124,17 @@ export async function convertQuoteToContract(quoteId: string) {
     entityId: contract.id,
     metadata: { quoteId },
   });
-  redirect(`/admin/contratos/${contract.id}`);
+  revalidatePath('/admin/orcamentos');
+  revalidatePath('/admin/contratos');
+  revalidatePath(`/admin/contratos/${contract.id}`);
+  return { contractId: contract.id as string };
+}
+
+export async function convertQuoteToContract(quoteId: string) {
+  const result = await createContractFromQuote(quoteId);
+  if ('error' in result && result.error) return { error: result.error };
+  if (!('contractId' in result) || !result.contractId) return { error: 'Não foi possível criar o contrato.' };
+  redirect(`/admin/contratos/${result.contractId}`);
 }
 
 export async function saveContract(formData: FormData) {
@@ -246,6 +283,36 @@ export async function attachSignedContract(formData: FormData) {
   });
   if (error) return { error: 'Arquivo enviado, mas não foi registrado.' };
   await writeAuditLog({ actorId: user.id, action: 'create', entity: 'documents', entityId: contractId });
+  revalidatePath(`/admin/contratos/${contractId}`);
+  return { ok: true as const };
+}
+
+export async function softDeleteContract(contractId: string) {
+  const user = await assertPermission('contracts.delete');
+  if (!contractId) return { error: 'Contrato inválido.' };
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const admin = createAdminClient();
+  const { data: contract } = await admin
+    .from('contracts')
+    .select('id')
+    .eq('id', contractId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!contract) return { error: 'Contrato não encontrado.' };
+
+  const { error } = await admin
+    .from('contracts')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', contractId);
+  if (error) return { error: error.message || 'Não foi possível excluir o contrato.' };
+
+  await writeAuditLog({
+    actorId: user.id,
+    action: 'soft_delete',
+    entity: 'contracts',
+    entityId: contractId,
+  });
+  revalidatePath('/admin/contratos');
   revalidatePath(`/admin/contratos/${contractId}`);
   return { ok: true as const };
 }

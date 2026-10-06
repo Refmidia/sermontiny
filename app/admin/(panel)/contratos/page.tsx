@@ -1,9 +1,6 @@
-import Link from 'next/link';
 import { requirePermission } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
-import { PageHeader } from '@/components/admin/page-header';
-import { ContractsTable, type ContractRow } from '@/components/admin/tables';
-import { Button } from '@/components/ui/button';
+import { ContractsBoard, type ContractBoardRow } from '@/components/admin/contracts-board';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,28 +9,29 @@ export default async function ContractsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  await requirePermission('contracts.read');
+  const user = await requirePermission('contracts.read');
   const { q } = await searchParams;
+  const canWrite = user.permissions.includes('contracts.write');
+  const canDelete = user.permissions.includes('contracts.delete');
   const supabase = await createClient();
-  const { data } = await supabase
-    .from('contracts')
-    .select('id, number, object, status, total_cents, starts_on, ends_on, signed_at, customers(legal_name), quotes(number)')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false });
 
-  return (
-    <div>
-      <PageHeader
-        title="Contratos"
-        description="Acompanhe contratos, vigências e documentos."
-        crumbs={[{ href: '/admin', label: 'Painel' }, { label: 'Contratos' }]}
-        actions={
-          <Button asChild>
-            <Link href="/admin/orcamentos?status=approved">Novo contrato</Link>
-          </Button>
-        }
-      />
-      <ContractsTable data={(data ?? []) as ContractRow[]} initialQuery={q ?? ''} />
-    </div>
-  );
+  let data: ContractBoardRow[] = [];
+  try {
+    const result = await supabase
+      .from('contracts')
+      .select(
+        `
+        id, number, object, status, total_cents, starts_on, ends_on, signed_at, created_at, quote_id,
+        customers(id, legal_name, phone, whatsapp_ddi, whatsapp_number),
+        quotes(id, number)
+      `,
+      )
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+    data = (result.data ?? []) as ContractBoardRow[];
+  } catch {
+    data = [];
+  }
+
+  return <ContractsBoard data={data} canWrite={canWrite} canDelete={canDelete} initialQuery={q ?? ''} />;
 }

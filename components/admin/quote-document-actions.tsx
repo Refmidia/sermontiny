@@ -23,17 +23,33 @@ export function QuoteDocumentActions({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   async function generate(open = true) {
-    setPending(true);
-    const result = await generateQuotePdf(quoteId, true);
-    setPending(false);
-    if (result.error || !result.ok || !result.url) {
-      toast.error(result.error ?? 'Não foi possível gerar o PDF.');
-      return null;
+    const url = `/api/quotes/${quoteId}/pdf`;
+    if (open) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return url;
     }
-    setPdfUrl(result.url);
-    toast.success('PDF gerado.');
-    if (open) window.open(result.url, '_blank', 'noopener,noreferrer');
-    return result.url;
+    setPending(true);
+    try {
+      const result = await generateQuotePdf(quoteId, true);
+      if (result.error || !result.ok || !result.url) {
+        toast.error(result.error ?? 'Não foi possível gerar o PDF.');
+        return null;
+      }
+      setPdfUrl(result.url);
+      toast.success('PDF gerado.');
+      return result.url;
+    } catch {
+      toast.error('Não foi possível gerar o PDF.');
+      return null;
+    } finally {
+      setPending(false);
+    }
   }
 
   async function sendEmail() {

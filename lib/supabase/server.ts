@@ -1,8 +1,10 @@
+import { createClient as createJsClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { getSupabasePublicEnv } from '@/lib/supabase/env';
+import { BOOTSTRAP_COOKIE, readBootstrapToken } from '@/lib/auth/bootstrap';
+import { getSupabasePublicEnv, getSupabaseServiceEnv } from '@/lib/supabase/env';
 
-export async function createClient() {
+export async function createUserClient() {
   const env = getSupabasePublicEnv();
   if (!env) {
     throw new Error('Supabase não configurado.');
@@ -26,4 +28,19 @@ export async function createClient() {
       },
     },
   });
+}
+
+export async function createClient() {
+  const cookieStore = await cookies();
+  const bootstrap = await readBootstrapToken(cookieStore.get(BOOTSTRAP_COOKIE)?.value);
+  const service = getSupabaseServiceEnv();
+  if (bootstrap && service) {
+    return createJsClient(service.url, service.serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: {
+        fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+      },
+    });
+  }
+  return createUserClient();
 }

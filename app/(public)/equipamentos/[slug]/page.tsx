@@ -4,14 +4,18 @@ import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { SiteContainer } from '@/components/public/site-container';
 import { SiteImage } from '@/components/public/site-image';
-import { getCompanySettings } from '@/lib/data/company';
+import { getPublicCompanySettings } from '@/lib/data/company';
 import { EQUIPMENT_STATUS_LABELS, getPublicEquipmentBySlug } from '@/lib/data/equipment';
 import { equipmentPhotoSrc } from '@/lib/storage-url';
 import { equipmentFallbackImage } from '@/lib/content/public-media';
 import { formatBRL } from '@/lib/money';
 import { SITE, absoluteUrl } from '@/lib/site';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
+
+export function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata({
   params,
@@ -34,7 +38,7 @@ export async function generateMetadata({
 
 export default async function EquipmentDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [item, settings] = await Promise.all([getPublicEquipmentBySlug(slug), getCompanySettings()]);
+  const [item, settings] = await Promise.all([getPublicEquipmentBySlug(slug), getPublicCompanySettings()]);
   if (!item) notFound();
   const photo = equipmentPhotoSrc(item) ?? equipmentFallbackImage(item.slug);
 

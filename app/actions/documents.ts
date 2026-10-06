@@ -6,12 +6,12 @@ import { writeAuditLog } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCompanySettings } from '@/lib/data/company';
+import { renderQuotePdfBuffer } from '@/lib/pdf/quote-file';
 import { renderPdfBuffer } from '@/lib/pdf/render';
 import { ContractPdf } from '@/lib/pdf/documents';
-import { QuotePdf } from '@/lib/pdf/quote-pdf';
-import { buildQuoteDocument, withQuotePix } from '@/lib/pdf/quote-document';
 import { sendWhatsApp, applyTemplate } from '@/lib/whatsapp';
 import { formatDateBr, toWhatsAppDigits } from '@/lib/format';
+import { BOOTSTRAP_USER_ID } from '@/lib/auth/bootstrap';
 import { RESPONSIBILITY_LABELS, type ResponsibilityParty } from '@/types/database';
 
 function publicDocumentUrl(token: string) {
@@ -21,63 +21,41 @@ function publicDocumentUrl(token: string) {
 
 export async function generateQuotePdf(quoteId: string, lockImmutable = false) {
   const user = await assertPermission('documents.write');
-  const supabase = await createClient();
-  const admin = createAdminClient();
-  const settings = await getCompanySettings();
-  const { data: quote } = await supabase
-    .from('quotes')
-    .select('*, customers(*), customer_units(*), quote_versions:current_version_id(*)')
-    .eq('id', quoteId)
-    .single();
-  const version = Array.isArray(quote?.quote_versions) ? quote?.quote_versions[0] : quote?.quote_versions;
-  const customer = Array.isArray(quote?.customers) ? quote?.customers[0] : quote?.customers;
-  const unit = Array.isArray(quote?.customer_units) ? quote?.customer_units[0] : quote?.customer_units;
-  if (!quote || !version || !customer) return { error: 'Orçamento incompleto.' };
-  const { data: items } = await supabase.from('quote_items').select('*').eq('quote_version_id', version.id);
+  try {
+    const admin = createAdminClient();
+    const { buffer, fileName, quote, version } = await renderQuotePdfBuffer(quoteId);
+    const token = crypto.randomUUID();
+    const path = `quotes/${fileName.replace(/\.pdf$/i, '')}-${token}.pdf`;
+    const { error: uploadError } = await admin.storage.from('documents').upload(path, buffer, {
+      contentType: 'application/pdf',
+      upsert: false,
+    });
+    if (uploadError) return { error: uploadError.message || 'Falha ao gravar o PDF.' };
 
-  const buffer = await renderPdfBuffer(
-    QuotePdf(
-      await withQuotePix(
-        buildQuoteDocument({
-          settings,
-          number: quote.number,
-          version,
-          customer,
-          unitName: unit?.name,
-          items: items ?? [],
-        }),
-      ),
-    ),
-  );
-
-  const token = crypto.randomUUID();
-  const path = `quotes/${quote.number}-v${version.version_number}-${token}.pdf`;
-  const { error: uploadError } = await admin.storage.from('documents').upload(path, buffer, {
-    contentType: 'application/pdf',
-    upsert: false,
-  });
-  if (uploadError) return { error: 'Falha ao gravar o PDF.' };
-
-  const { data: document, error } = await admin
-    .from('documents')
-    .insert({
-      kind: 'quote_pdf',
-      customer_id: quote.customer_id,
-      quote_id: quote.id,
-      quote_version_id: version.id,
-      storage_path: path,
-      file_name: `${quote.number}-v${version.version_number}.pdf`,
-      is_immutable: lockImmutable,
-      access_token: token,
-      token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      created_by: user.id,
-    })
-    .select('id, access_token')
-    .single();
-  if (error || !document) return { error: 'PDF gerado, mas não registrado.' };
-  await writeAuditLog({ actorId: user.id, action: 'pdf_generate', entity: 'quotes', entityId: quoteId });
-  revalidatePath(`/admin/orcamentos/${quoteId}`);
-  return { ok: true as const, documentId: document.id, url: publicDocumentUrl(token) };
+    const { data: document, error } = await admin
+      .from('documents')
+      .insert({
+        kind: 'quote_pdf',
+        customer_id: quote.customer_id,
+        quote_id: quote.id,
+        quote_version_id: version.id,
+        storage_path: path,
+        file_name: fileName,
+        is_immutable: lockImmutable,
+        access_token: token,
+        token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        created_by: user.id === BOOTSTRAP_USER_ID ? null : user.id,
+      })
+      .select('id, access_token')
+      .single();
+    if (error || !document) return { error: error?.message || 'PDF gerado, mas não registrado.' };
+    await writeAuditLog({ actorId: user.id === BOOTSTRAP_USER_ID ? null : user.id, action: 'pdf_generate', entity: 'quotes', entityId: quoteId });
+    revalidatePath(`/admin/orcamentos/${quoteId}`);
+    return { ok: true as const, documentId: document.id, url: publicDocumentUrl(token) };
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : 'Não foi possível gerar o PDF.';
+    return { error: message };
+  }
 }
 
 export async function generateContractPdf(contractId: string) {

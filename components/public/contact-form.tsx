@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { contactSchema, type ContactInput } from '@/lib/validations/common';
@@ -20,13 +20,7 @@ const SUBJECTS = [
   'Outro assunto',
 ];
 
-export function ContactForm({
-  equipment,
-  selectedEquipmentId,
-}: {
-  equipment: Equipment[];
-  selectedEquipmentId?: string;
-}) {
+export function ContactForm({ equipment }: { equipment: Equipment[] }) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const form = useForm<ContactInput>({
@@ -38,11 +32,16 @@ export function ContactForm({
       whatsapp: '',
       company: '',
       subject: 'Solicitação de orçamento',
-      equipmentId: selectedEquipmentId ?? '',
+      equipmentId: '',
       message: '',
       consent: false,
     },
   });
+
+  useEffect(() => {
+    const selected = new URLSearchParams(window.location.search).get('equipamento');
+    if (selected) form.setValue('equipmentId', selected);
+  }, [form]);
 
   async function onSubmit(values: ContactInput) {
     setError(null);

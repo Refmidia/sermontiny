@@ -44,14 +44,27 @@ export function EquipmentPhotoField({
     startTransition(async () => {
       try {
         const result = await uploadEquipmentPhoto(data);
-        if (result.error) {
+        if (result?.error) {
           setError(result.error);
           setPreview(null);
           return;
         }
         router.refresh();
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Não foi possível enviar a foto.');
+        if (
+          typeof caught === 'object' &&
+          caught !== null &&
+          'digest' in caught &&
+          String((caught as { digest?: string }).digest ?? '').startsWith('NEXT_')
+        ) {
+          throw caught;
+        }
+        const message = caught instanceof Error ? caught.message : '';
+        if (message.includes('Minified React error')) {
+          router.refresh();
+          return;
+        }
+        setError(message || 'Não foi possível enviar a foto.');
         setPreview(null);
       }
     });

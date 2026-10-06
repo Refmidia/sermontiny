@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabasePublicEnv } from '@/lib/supabase/env';
+import { BOOTSTRAP_COOKIE, readBootstrapToken } from '@/lib/auth/bootstrap';
 
 const PUBLIC_ADMIN = ['/admin/login', '/admin/recuperar-senha'];
 
@@ -10,6 +11,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   if (PUBLIC_ADMIN.some((path) => pathname.startsWith(path))) {
+    return NextResponse.next();
+  }
+
+  const bootstrap = await readBootstrapToken(request.cookies.get(BOOTSTRAP_COOKIE)?.value);
+  if (bootstrap) {
     return NextResponse.next();
   }
 
@@ -35,11 +41,9 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
 
-  if (!user) {
+  if (!data?.claims?.sub) {
     const url = request.nextUrl.clone();
     url.pathname = '/admin/login';
     url.searchParams.set('next', pathname);

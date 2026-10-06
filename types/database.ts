@@ -32,7 +32,7 @@ export type DocumentKind =
   | 'certificate'
   | 'other';
 export type ResponsibilityParty = 'contratante' | 'contratada' | 'compartilhado' | 'nao_aplicavel';
-export type LeadStatus = 'new' | 'in_progress' | 'converted' | 'archived';
+export type LeadStatus = 'new' | 'in_progress' | 'proposal_sent' | 'converted' | 'lost' | 'archived';
 export type AuditAction =
   | 'login'
   | 'create'
@@ -49,6 +49,7 @@ export type Profile = {
   full_name: string;
   role_id: string | null;
   phone: string | null;
+  photo_path: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -151,6 +152,7 @@ export type CustomerContact = {
   phone: string | null;
   whatsapp: string | null;
   is_primary: boolean;
+  deleted_at?: string | null;
 };
 
 export type Equipment = {
@@ -192,7 +194,10 @@ export type Lead = {
   message: string;
   status: LeadStatus;
   source: string;
+  notes?: string | null;
+  assigned_to?: string | null;
   created_at: string;
+  updated_at?: string;
 };
 
 export type Quote = {

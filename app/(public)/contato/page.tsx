@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { ContactForm } from '@/components/public/contact-form';
+import { MapEmbed } from '@/components/public/map-embed';
 import { PageHero } from '@/components/public/page-hero';
 import { SiteContainer } from '@/components/public/site-container';
 import { companyAddress } from '@/lib/data/company';
-import { getCompanySettings } from '@/lib/data/company';
+import { getPublicCompanySettings } from '@/lib/data/company';
 import { getPublicEquipment } from '@/lib/data/equipment';
 import { SITE } from '@/lib/site';
 import { commercialWhatsAppHref } from '@/lib/whatsapp-public';
@@ -13,18 +14,10 @@ export const metadata: Metadata = {
   description: 'Fale com o comercial da Sermontiny para orçamentos de montagem e locação.',
 };
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
-export default async function ContactPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ equipamento?: string }>;
-}) {
-  const [{ equipamento }, settings, equipment] = await Promise.all([
-    searchParams,
-    getCompanySettings(),
-    getPublicEquipment(),
-  ]);
+export default async function ContactPage() {
+  const [settings, equipment] = await Promise.all([getPublicCompanySettings(), getPublicEquipment()]);
 
   const mapQuery = encodeURIComponent(companyAddress(settings));
   const whatsappHref = commercialWhatsAppHref(settings.whatsapp);
@@ -34,7 +27,7 @@ export default async function ContactPage({
       <PageHero
         eyebrow="Contato"
         title="Fale com o comercial"
-        description="Informe o serviço, o equipamento de interesse e o período. Os contatos ficam registrados no painel."
+        description="Informe o serviço, o equipamento de interesse e o período. Nossa equipe comercial retorna o mais rápido possível."
       />
       <section className="bg-paper py-16">
         <SiteContainer className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
@@ -77,16 +70,10 @@ export default async function ContactPage({
                 </a>
               </p>
             </div>
-            <iframe
-              title="Mapa da Sermontiny"
-              className="h-64 w-full rounded-[14px] border"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              src={`https://maps.google.com/maps?q=${mapQuery}&z=15&output=embed`}
-            />
+            <MapEmbed query={mapQuery} address={companyAddress(settings)} />
           </aside>
           <div className="rounded-[14px] border bg-white p-6 shadow-panel">
-            <ContactForm equipment={equipment} selectedEquipmentId={equipamento} />
+            <ContactForm equipment={equipment} />
           </div>
         </SiteContainer>
       </section>

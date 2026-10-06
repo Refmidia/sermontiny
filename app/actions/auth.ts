@@ -1,20 +1,23 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { cookies, headers } from 'next/headers';
+import { createUserClient } from '@/lib/supabase/server';
 import { writeAuditLog } from '@/lib/audit';
 import { loginSchema, recoverSchema } from '@/lib/validations/common';
 import { isSupabaseConfigured } from '@/lib/supabase/env';
 import { getClientIp, rateLimit } from '@/lib/rate-limit';
-import { headers } from 'next/headers';
+import {
+  BOOTSTRAP_COOKIE,
+  bootstrapCookieOptions,
+  createBootstrapToken,
+  isBootstrapConfigured,
+  verifyBootstrapPassword,
+} from '@/lib/auth/bootstrap';
 
 export async function loginAction(formData: FormData) {
-  if (!isSupabaseConfigured()) {
-    return { error: 'Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.' };
-  }
-
   const parsed = loginSchema.safeParse({
-    email: formData.get('email'),
+    email: String(formData.get('email') ?? '').trim().toLowerCase(),
     password: formData.get('password'),
   });
   if (!parsed.success) {
@@ -27,7 +30,31 @@ export async function loginAction(formData: FormData) {
     return { error: 'Muitas tentativas de acesso. Aguarde alguns minutos.' };
   }
 
-  const supabase = await createClient();
+  if (verifyBootstrapPassword(parsed.data.email, parsed.data.password)) {
+    const token = await createBootstrapToken(parsed.data.email);
+    const cookieStore = await cookies();
+    cookieStore.set(BOOTSTRAP_COOKIE, token, bootstrapCookieOptions());
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = await createUserClient();
+        await supabase.auth.signInWithPassword(parsed.data);
+      } catch {
+        // O painel já entra pelo cookie de emergência.
+      }
+    }
+    const next = String(formData.get('next') || '/admin');
+    redirect(next.startsWith('/admin') ? next : '/admin');
+  }
+
+  if (!isSupabaseConfigured()) {
+    return {
+      error: isBootstrapConfigured()
+        ? 'E-mail ou senha inválidos.'
+        : 'Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+    };
+  }
+
+  const supabase = await createUserClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error || !data.user) {
     return { error: 'E-mail ou senha inválidos.' };
@@ -63,7 +90,7 @@ export async function recoverAction(formData: FormData) {
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'E-mail inválido.' };
   }
-  const supabase = await createClient();
+  const supabase = await createUserClient();
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${origin}/auth/callback?next=/admin`,
@@ -75,8 +102,15 @@ export async function recoverAction(formData: FormData) {
 }
 
 export async function logoutAction() {
-  if (!isSupabaseConfigured()) redirect('/admin/login');
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  const cookieStore = await cookies();
+  cookieStore.set(BOOTSTRAP_COOKIE, '', { ...bootstrapCookieOptions(), maxAge: 0 });
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createUserClient();
+      await supabase.auth.signOut();
+    } catch {
+      // O Auth pode estar indisponível; a sessão local já foi encerrada.
+    }
+  }
   redirect('/admin/login');
 }

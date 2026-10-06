@@ -4,7 +4,7 @@ import { PageHero } from '@/components/public/page-hero';
 import { SiteContainer } from '@/components/public/site-container';
 import { SiteImage } from '@/components/public/site-image';
 import { featuredFleetCards } from '@/lib/content/home-fleet';
-import { getCompanySettings } from '@/lib/data/company';
+import { getPublicCompanySettings } from '@/lib/data/company';
 import { EQUIPMENT_STATUS_LABELS, getPublicEquipment } from '@/lib/data/equipment';
 import { equipmentPhotoSrc } from '@/lib/storage-url';
 import { equipmentFallbackImage } from '@/lib/content/public-media';
@@ -15,10 +15,10 @@ export const metadata: Metadata = {
   description: 'Catálogo de guindastes, muncks, prancha e serviços de mobilização da Sermontiny.',
 };
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 export default async function EquipmentCatalogPage() {
-  const [settings, equipment] = await Promise.all([getCompanySettings(), getPublicEquipment()]);
+  const [settings, equipment] = await Promise.all([getPublicCompanySettings(), getPublicEquipment()]);
   const fallbackFleet = featuredFleetCards(equipment, (item) => equipmentPhotoSrc(item));
 
   return (
@@ -26,7 +26,7 @@ export default async function EquipmentCatalogPage() {
       <PageHero
         eyebrow="Nossa frota"
         title="Equipamentos preparados para cada desafio."
-        description="Os dados abaixo vêm do cadastro administrativo. Preços públicos permanecem ocultos até autorização nas configurações."
+        description="Guindastes e equipamentos para içamento e movimentação de cargas, com operação segura e equipe qualificada. Solicite um orçamento para sua obra."
       />
       <section className="bg-paper py-16">
         <SiteContainer>

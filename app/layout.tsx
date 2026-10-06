@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Archivo, IBM_Plex_Sans, Inter } from 'next/font/google';
+import { Archivo, Inter } from 'next/font/google';
 import { SITE, absoluteUrl } from '@/lib/site';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
@@ -7,13 +7,6 @@ import './globals.css';
 const archivo = Archivo({
   subsets: ['latin'],
   variable: '--font-archivo',
-  display: 'swap',
-});
-
-const ibmPlex = IBM_Plex_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-ibm-plex',
   display: 'swap',
 });
 
@@ -53,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="pt-BR"
       data-scroll-behavior="smooth"
-      className={`${archivo.variable} ${ibmPlex.variable} ${inter.variable} h-full`}
+      className={`${archivo.variable} ${inter.variable} h-full`}
     >
       <body className="min-h-full bg-background font-sans text-foreground antialiased">
         {children}

@@ -1,7 +1,12 @@
+import { unstable_cache } from 'next/cache';
 import { SITE } from '@/lib/site';
 import { isSupabaseConfigured } from '@/lib/supabase/env';
+import { createPublicReader, withPublicReadBreaker } from '@/lib/supabase/public-reader';
 import { createClient } from '@/lib/supabase/server';
 import type { CompanySettings } from '@/types/database';
+
+export const COMPANY_SETTINGS_TAG = 'company-settings';
+const COMPANY_SETTINGS_ID = '00000000-0000-0000-0000-000000000001';
 
 export function fallbackCompanySettings(): CompanySettings {
   return {
@@ -17,8 +22,8 @@ export function fallbackCompanySettings(): CompanySettings {
     city: SITE.address.city,
     state: SITE.address.state,
     zip: SITE.address.zip,
-    phones: [],
-    whatsapp: null,
+    phones: [SITE.phone],
+    whatsapp: SITE.phone,
     email: SITE.email,
     website: SITE.website,
     logo_path: null,
@@ -51,12 +56,37 @@ export async function getCompanySettings() {
     const { data } = await supabase
       .from('company_settings')
       .select('*')
-      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .eq('id', COMPANY_SETTINGS_ID)
       .maybeSingle();
     return (data as CompanySettings | null) ?? fallbackCompanySettings();
   } catch {
     return fallbackCompanySettings();
   }
+}
+
+// Falhas lançam erro para não ficarem guardadas no cache.
+const loadPublicCompanySettings = unstable_cache(
+  async () => {
+    const client = createPublicReader();
+    if (!client) return null;
+    const { data, error } = await client.from('company_settings').select('*').eq('id', COMPANY_SETTINGS_ID).maybeSingle();
+    if (error) throw new Error(error.message);
+    return data as CompanySettings | null;
+  },
+  ['public-company-settings'],
+  { revalidate: 300, tags: [COMPANY_SETTINGS_TAG] },
+);
+
+/** Versão em cache para o site público; o painel usa getCompanySettings (sempre atual). */
+export async function getPublicCompanySettings() {
+  if (!isSupabaseConfigured()) return fallbackCompanySettings();
+  const settings = await withPublicReadBreaker(loadPublicCompanySettings, null);
+  if (!settings) return fallbackCompanySettings();
+  return {
+    ...settings,
+    phones: settings.phones?.length ? settings.phones : [SITE.phone],
+    whatsapp: settings.whatsapp || SITE.phone,
+  };
 }
 
 export function companyAddress(settings: CompanySettings) {

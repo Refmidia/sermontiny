@@ -14,7 +14,7 @@ export function AdminLogo({
 }) {
   const src = inverted
     ? '/images/sermontiny/logo-oficial-white.png'
-    : '/images/sermontiny/logo-oficial-nav.png';
+    : '/images/sermontiny/logo-oficial-nav.webp';
 
   return (
     <Link
@@ -33,7 +33,7 @@ export function AdminLogo({
           alt="Sermontiny Montagens Industriais e Locações"
           width={1006}
           height={298}
-          className="h-12 w-auto max-w-[210px] object-contain object-center"
+          className="h-9 w-auto max-w-[180px] object-contain object-center"
         />
       )}
     </Link>
