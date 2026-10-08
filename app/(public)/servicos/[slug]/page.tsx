@@ -47,22 +47,30 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
           <h1 className="mt-3 text-4xl font-bold text-navy">{service.title}</h1>
           <div className="gold-rule mt-5" />
           <p className="mt-6 text-lg leading-8 text-muted">{service.description}</p>
-          <h2 className="mt-10 text-2xl font-semibold text-navy">Como executamos</h2>
-          <ul className="mt-4 space-y-2 text-sm text-muted">
-            {service.highlights.map((item) => (
-              <li key={item} className="border-l-2 border-gold pl-3">
-                {item}
-              </li>
-            ))}
-          </ul>
-          <h2 className="mt-10 text-2xl font-semibold text-navy">Aplicações</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {service.applications.map((item) => (
-              <span key={item} className="rounded-full border border-border bg-paper px-3 py-1 text-sm text-navy">
-                {item}
-              </span>
-            ))}
-          </div>
+          {service.highlights.length > 0 && (
+            <>
+              <h2 className="mt-10 text-2xl font-semibold text-navy">Como executamos</h2>
+              <ul className="mt-4 space-y-2 text-sm text-muted">
+                {service.highlights.map((item) => (
+                  <li key={item} className="border-l-2 border-gold pl-3">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {service.applications.length > 0 && (
+            <>
+              <h2 className="mt-10 text-2xl font-semibold text-navy">Aplicações</h2>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {service.applications.map((item) => (
+                  <span key={item} className="rounded-full border border-border bg-paper px-3 py-1 text-sm text-navy">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
           <Button asChild variant="gold" className="mt-10">
             <Link href="/contato">Solicitar orçamento</Link>
           </Button>

@@ -5,8 +5,8 @@ import { SiteContainer } from '@/components/public/site-container';
 import { SiteImage } from '@/components/public/site-image';
 import { Button } from '@/components/ui/button';
 import { COMPANY_STORY } from '@/lib/content/company';
-import { PUBLIC_MEDIA } from '@/lib/content/public-media';
 import { getPublicCertificates } from '@/lib/data/certificates';
+import { getPublicSiteMedia } from '@/lib/data/site-media';
 import { publicStorageUrl } from '@/lib/storage-url';
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function CompanyPage() {
-  const certificates = await getPublicCertificates();
+  const [certificates, media] = await Promise.all([getPublicCertificates(), getPublicSiteMedia()]);
 
   return (
     <>
@@ -35,8 +35,8 @@ export default async function CompanyPage() {
             </Button>
           </div>
           <SiteImage
-            src={PUBLIC_MEDIA.about.src}
-            alt={PUBLIC_MEDIA.about.alt}
+            src={media.about.src}
+            alt={media.about.alt}
             width={900}
             height={720}
             sizes="(max-width: 1024px) 100vw, 50vw"

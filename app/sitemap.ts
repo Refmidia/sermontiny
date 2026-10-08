@@ -1,10 +1,10 @@
 import type { MetadataRoute } from 'next';
-import { SERVICES } from '@/lib/content/services';
 import { getPublicEquipment } from '@/lib/data/equipment';
+import { getPublicServices } from '@/lib/data/services';
 import { absoluteUrl } from '@/lib/site';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const equipment = await getPublicEquipment();
+  const [equipment, { services }] = await Promise.all([getPublicEquipment(), getPublicServices()]);
   const staticRoutes = ['/', '/servicos', '/equipamentos', '/empresa', '/projetos', '/contato', '/privacidade', '/termos', '/cookies'];
 
   return [
@@ -12,7 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: absoluteUrl(path),
       lastModified: new Date(),
     })),
-    ...SERVICES.map((service) => ({
+    ...services.map((service) => ({
       url: absoluteUrl(`/servicos/${service.slug}`),
       lastModified: new Date(),
     })),

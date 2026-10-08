@@ -1,6 +1,6 @@
 import { SITE, absoluteUrl } from '@/lib/site';
 import type { CompanySettings } from '@/types/database';
-import { SERVICES } from '@/lib/content/services';
+import type { ServicePage } from '@/lib/content/services';
 
 export function LocalBusinessJsonLd({ settings }: { settings: CompanySettings }) {
   const json = {
@@ -31,11 +31,11 @@ export function LocalBusinessJsonLd({ settings }: { settings: CompanySettings })
   );
 }
 
-export function ServiceJsonLd() {
+export function ServiceJsonLd({ services }: { services: Pick<ServicePage, 'slug' | 'title' | 'summary'>[] }) {
   const json = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    itemListElement: SERVICES.map((service, index) => ({
+    itemListElement: services.map((service, index) => ({
       '@type': 'ListItem',
       position: index + 1,
       item: {

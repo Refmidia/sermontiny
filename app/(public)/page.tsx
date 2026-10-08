@@ -24,6 +24,7 @@ import { PUBLIC_MEDIA } from '@/lib/content/public-media';
 import { featuredFleetCards } from '@/lib/content/home-fleet';
 import { getPublicCompanySettings } from '@/lib/data/company';
 import { getPublicServices } from '@/lib/data/services';
+import { getPublicSiteMedia } from '@/lib/data/site-media';
 import { getPublicEquipment } from '@/lib/data/equipment';
 import { equipmentPhotoSrc } from '@/lib/storage-url';
 import { commercialWhatsAppHref } from '@/lib/whatsapp-public';
@@ -31,31 +32,23 @@ import { formatBRL } from '@/lib/money';
 
 export const revalidate = 300;
 
-const HOME_SERVICES = [
-  'montagens-industriais',
-  'fabricacao-estruturas-metalicas',
-  'manutencao-industrial',
-  'reservatorios-e-tubulacoes',
-  'instalacoes-eletricas',
-  'transporte-e-movimentacao-de-cargas',
-] as const;
-
 export default async function HomePage() {
-  const [settings, equipment, { services, section }] = await Promise.all([
+  const [settings, equipment, { services, section }, media] = await Promise.all([
     getPublicCompanySettings(),
     getPublicEquipment(),
     getPublicServices(),
+    getPublicSiteMedia(),
   ]);
   const fleet = featuredFleetCards(equipment, (item) => equipmentPhotoSrc(item));
   const whatsappHref = commercialWhatsAppHref(settings.whatsapp);
 
   return (
     <>
-      <ServiceJsonLd />
+      <ServiceJsonLd services={services} />
       <section className="relative isolate min-h-[620px] overflow-hidden bg-navy text-white md:min-h-[650px]">
         <SiteImage
-          src={PUBLIC_MEDIA.hero.src}
-          alt={PUBLIC_MEDIA.hero.alt}
+          src={media.hero.src}
+          alt={media.hero.alt}
           fill
           priority
           sizes="100vw"
@@ -145,8 +138,8 @@ export default async function HomePage() {
           <div className="relative">
             <div className="overflow-hidden rounded-[14px]">
               <SiteImage
-                src={PUBLIC_MEDIA.about.src}
-                alt={PUBLIC_MEDIA.about.alt}
+                src={media.about.src}
+                alt={media.about.alt}
                 width={900}
                 height={720}
                 sizes="(max-width: 1024px) 100vw, 52vw"
@@ -202,11 +195,11 @@ export default async function HomePage() {
             }
           />
           <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {HOME_SERVICES.map((slug, index) => {
-              const service = services.find((item) => item.slug === slug);
-              if (!service) return null;
-              return <ServiceCard key={service.slug} service={service} index={index} />;
-            })}
+            {services
+              .filter((service) => service.showOnHome)
+              .map((service, index) => (
+                <ServiceCard key={service.slug} service={service} index={index} />
+              ))}
           </div>
         </SiteContainer>
       </section>
@@ -311,8 +304,8 @@ export default async function HomePage() {
 
       <section className="relative isolate overflow-hidden bg-navy py-20 text-white">
         <SiteImage
-          src={PUBLIC_MEDIA.cta.src}
-          alt={PUBLIC_MEDIA.cta.alt}
+          src={media.cta.src}
+          alt={media.cta.alt}
           fill
           sizes="100vw"
           className="opacity-25"

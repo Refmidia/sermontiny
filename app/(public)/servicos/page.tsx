@@ -17,7 +17,7 @@ export default async function ServicesPage() {
   const { services, section } = await getPublicServices();
   return (
     <>
-      <ServiceJsonLd />
+      <ServiceJsonLd services={services} />
       <PageHero
         eyebrow={section.eyebrow}
         title={section.title}

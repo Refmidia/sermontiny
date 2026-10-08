@@ -55,7 +55,7 @@ const FOREIGN_KEYS: Record<string, Record<string, string>> = {
   audit_logs: { actor_id: 'profiles' },
 };
 
-const TABLES_WITHOUT_ID = new Set(['role_permissions', 'storage_objects', 'site_services']);
+const TABLES_WITHOUT_ID = new Set(['role_permissions', 'storage_objects', 'site_services', 'site_media']);
 const JSON_COLUMNS: Record<string, string[]> = {
   company_settings: ['phones'],
   audit_logs: ['metadata'],

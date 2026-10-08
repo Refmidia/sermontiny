@@ -3,12 +3,18 @@ import { Instagram } from 'lucide-react';
 import { Logo } from '@/components/public/logo';
 import { SiteContainer } from '@/components/public/site-container';
 import { companyAddress } from '@/lib/data/company';
-import { SERVICES } from '@/lib/content/services';
+import type { ServicePage } from '@/lib/content/services';
 import { SITE } from '@/lib/site';
 import { commercialWhatsAppHref } from '@/lib/whatsapp-public';
 import type { CompanySettings } from '@/types/database';
 
-export function PublicFooter({ settings }: { settings: CompanySettings }) {
+export function PublicFooter({
+  settings,
+  services,
+}: {
+  settings: CompanySettings;
+  services: Pick<ServicePage, 'slug' | 'shortTitle'>[];
+}) {
   const whatsappHref = commercialWhatsAppHref(settings.whatsapp);
 
   return (
@@ -54,7 +60,7 @@ export function PublicFooter({ settings }: { settings: CompanySettings }) {
         <div>
           <h2 className="text-xs font-semibold tracking-[0.18em] text-gold uppercase">Serviços</h2>
           <ul className="mt-4 space-y-2 text-sm text-white/75">
-            {SERVICES.slice(0, 6).map((service) => (
+            {services.slice(0, 6).map((service) => (
               <li key={service.slug}>
                 <Link href={`/servicos/${service.slug}`} className="hover:text-white">
                   {service.shortTitle}

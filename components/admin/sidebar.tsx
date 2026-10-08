@@ -6,6 +6,7 @@ import {
   ClipboardList,
   FileSignature,
   Gauge,
+  Image as ImageIcon,
   Inbox,
   LayoutGrid,
   LogOut,
@@ -44,6 +45,7 @@ const GROUPS: NavGroup[] = [
     label: 'Gestão',
     items: [
       { href: '/admin/servicos', label: 'Serviços do site', icon: LayoutGrid, permission: 'settings.read' },
+      { href: '/admin/fotos-do-site', label: 'Fotos do site', icon: ImageIcon, permission: 'settings.read' },
       { href: '/admin/usuarios', label: 'Usuários', icon: UserCog, permission: 'users.read' },
       { href: '/admin/configuracoes', label: 'Configurações', icon: Settings, permission: 'settings.read' },
     ],
