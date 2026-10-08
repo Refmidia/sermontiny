@@ -1,10 +1,10 @@
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { createUserClient } from '@/lib/supabase/server';
-import { hasPermission, ROLE_PERMISSIONS, type PermissionSlug } from '@/lib/permissions';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
-import { BOOTSTRAP_COOKIE, BOOTSTRAP_USER_ID, readBootstrapToken } from '@/lib/auth/bootstrap';
+import { createAdminClient } from '@/lib/db/admin';
+import { hasPermission, type PermissionSlug } from '@/lib/permissions';
+import { isDatabaseConfigured } from '@/lib/db/pool';
+import { SESSION_COOKIE, readSessionToken } from '@/lib/auth/token';
 
 export type SessionUser = {
   id: string;
@@ -35,28 +35,12 @@ export const getSessionUser = cache(loadSessionUser);
 
 async function loadSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
-  const bootstrap = await readBootstrapToken(cookieStore.get(BOOTSTRAP_COOKIE)?.value);
-  if (bootstrap) {
-    return {
-      id: BOOTSTRAP_USER_ID,
-      email: bootstrap.email,
-      fullName: 'Eduardo Pinheiro',
-      roleSlug: 'administrator',
-      roleName: 'Administrador',
-      permissions: [...ROLE_PERMISSIONS.administrator],
-    };
-  }
+  const session = await readSessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+  if (!session || !isDatabaseConfigured()) return null;
+  const userId = session.sub;
+  const email = session.email;
 
-  if (!isSupabaseConfigured()) return null;
-
-  const supabase = await createUserClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const claims = claimsData?.claims;
-  const userId = typeof claims?.sub === 'string' ? claims.sub : null;
-  if (!userId) return null;
-  const email = typeof claims?.email === 'string' ? claims.email : '';
-
-  const { data: profile } = await supabase
+  const { data: profile } = await createAdminClient()
     .from('profiles')
     .select('id, full_name, is_active, deleted_at, role_id, roles(slug, name, role_permissions(permissions(slug)))')
     .eq('id', userId)

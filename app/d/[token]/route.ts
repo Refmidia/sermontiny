@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
+import { createAdminClient } from '@/lib/db/admin';
+import { isDatabaseConfigured } from '@/lib/db/pool';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
   }
   const { token } = await params;
@@ -21,9 +21,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: 'Link expirado.' }, { status: 410 });
   }
 
-  const { data: signed, error } = await admin.storage.from('documents').createSignedUrl(data.storage_path, 120);
-  if (error || !signed?.signedUrl) {
+  const { data: file, error } = await admin.storage.from('documents').download(data.storage_path);
+  if (error || !file) {
     return NextResponse.json({ error: 'Não foi possível abrir o documento.' }, { status: 500 });
   }
-  return NextResponse.redirect(signed.signedUrl);
+  const fileName = String(data.file_name || 'documento.pdf').replace(/["\r\n]/g, '');
+  return new NextResponse(Buffer.from(await file.arrayBuffer()), {
+    headers: {
+      'Content-Type': file.type || 'application/pdf',
+      'Content-Disposition': `inline; filename="${fileName}"`,
+      'Cache-Control': 'private, no-store',
+    },
+  });
 }

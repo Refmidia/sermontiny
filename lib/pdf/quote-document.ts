@@ -111,7 +111,7 @@ export function buildQuoteDocument(input: {
 }
 
 export async function withQuotePix(doc: QuoteDocumentModel): Promise<QuoteDocumentModel> {
-  const pix = await resolveQuotePix(doc.settings);
+  const pix = await resolveQuotePix(doc.settings, { amountCents: doc.totalCents, txid: doc.number });
   if (!pix) return doc;
   return { ...doc, pixKeyLabel: pix.keyLabel, pixQrSrc: pix.qrDataUrl };
 }

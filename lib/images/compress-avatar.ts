@@ -1,18 +1,23 @@
-/** Comprime e redimensiona avatar no navegador (sem dependência extra). */
+/** Comprime e redimensiona imagens no navegador (sem dependência extra). */
 
-const MAX_EDGE = 256;
-const JPEG_QUALITY = 0.82;
+const SOURCE_MAX_BYTES = 25 * 1024 * 1024;
 
-export async function compressAvatarFile(file: File): Promise<File> {
+type CompressOptions = {
+  maxEdge: number;
+  quality: number;
+  type: 'image/jpeg' | 'image/webp';
+};
+
+export async function compressImageFile(file: File, { maxEdge, quality, type }: CompressOptions): Promise<File> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Envie uma imagem (JPG, PNG ou WebP).');
   }
-  if (file.size > 8 * 1024 * 1024) {
-    throw new Error('A foto deve ter no máximo 8 MB antes da compressão.');
+  if (file.size > SOURCE_MAX_BYTES) {
+    throw new Error('A foto deve ter no máximo 25 MB.');
   }
 
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
 
@@ -30,11 +35,22 @@ export async function compressAvatarFile(file: File): Promise<File> {
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY);
-  });
+  let blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+  // Safari antigo não gera WebP e devolve PNG.
+  if (blob && blob.type !== type) {
+    blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+  }
   if (!blob) throw new Error('Não foi possível comprimir a imagem.');
 
-  const base = file.name.replace(/\.[^.]+$/, '') || 'avatar';
-  return new File([blob], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+  const extension = blob.type === 'image/webp' ? 'webp' : 'jpg';
+  const base = file.name.replace(/\.[^.]+$/, '') || 'foto';
+  return new File([blob], `${base}.${extension}`, { type: blob.type, lastModified: Date.now() });
+}
+
+export function compressAvatarFile(file: File) {
+  return compressImageFile(file, { maxEdge: 256, quality: 0.82, type: 'image/jpeg' });
+}
+
+export function compressEquipmentPhoto(file: File) {
+  return compressImageFile(file, { maxEdge: 1600, quality: 0.8, type: 'image/webp' });
 }

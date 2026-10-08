@@ -1,13 +1,13 @@
 import { requireSession } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { AdminShell } from '@/components/admin/admin-shell';
 
 export default async function AdminPanelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSession();
   let leads: { id: string; name: string; subject: string | null; created_at: string }[] = [];
   try {
-    const supabase = await createClient();
-    const { data } = await supabase
+    const db = await createClient();
+    const { data } = await db
       .from('leads')
       .select('id, name, subject, created_at')
       .eq('status', 'new')

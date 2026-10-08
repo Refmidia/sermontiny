@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { getSupabaseServiceEnv } from '@/lib/supabase/env';
+import { createAdminClient } from '@/lib/db/admin';
+import { isDatabaseConfigured } from '@/lib/db/pool';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!getSupabaseServiceEnv()) {
+  if (!isDatabaseConfigured()) {
     return new NextResponse('Foto indisponível.', { status: 503 });
   }
 

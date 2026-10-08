@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/db/admin';
+import { createClient } from '@/lib/db/server';
 import { toCents } from '@/lib/money';
 
 export type QuotePaymentRow = {
@@ -58,8 +58,8 @@ export async function listQuotePayments(quoteId: string) {
   await assertPermission('quotes.read');
   if (!quoteId) return { error: 'Orçamento inválido.' as const, payments: [] as QuotePaymentRow[] };
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = await createClient();
+  const { data, error } = await db
     .from('quote_payments')
     .select('id, quote_id, amount_cents, kind, paid_at, notes, created_at')
     .eq('quote_id', quoteId)
@@ -96,8 +96,8 @@ export async function sumReceivedByQuoteIds(quoteIds: string[]) {
   for (const id of unique) totals[id] = 0;
   if (unique.length === 0) return { totals };
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = await createClient();
+  const { data, error } = await db
     .from('quote_payments')
     .select('quote_id, amount_cents')
     .in('quote_id', unique)
@@ -148,8 +148,8 @@ export async function createQuotePayment(input: {
   const paidAt = input.paidAt ? new Date(input.paidAt) : new Date();
   if (Number.isNaN(paidAt.getTime())) return { error: 'Data/hora inválida.' };
 
-  const supabase = await createClient();
-  const { data: quote } = await supabase
+  const db = await createClient();
+  const { data: quote } = await db
     .from('quotes')
     .select('id, number')
     .eq('id', quoteId)
@@ -157,7 +157,7 @@ export async function createQuotePayment(input: {
     .maybeSingle();
   if (!quote) return { error: 'Orçamento não encontrado.' };
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('quote_payments')
     .insert({
       quote_id: quoteId,

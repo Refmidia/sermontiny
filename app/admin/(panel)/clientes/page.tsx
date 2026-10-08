@@ -1,5 +1,5 @@
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { CustomersBoard, type CustomerRow } from '@/components/admin/customers-board';
 
 export const dynamic = 'force-dynamic';
@@ -7,17 +7,17 @@ export const dynamic = 'force-dynamic';
 export default async function CustomersPage() {
   const user = await requirePermission('customers.read');
   const canWrite = user.permissions.includes('customers.write');
-  const supabase = await createClient();
+  const db = await createClient();
 
   let rows: CustomerRow[] = [];
-  const withRelations = await supabase
+  const withRelations = await db
     .from('customers')
     .select('*, customer_contacts(*), contracts(id, status, deleted_at)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (withRelations.error) {
-    const fallback = await supabase
+    const fallback = await db
       .from('customers')
       .select('*')
       .is('deleted_at', null)

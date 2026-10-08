@@ -4,8 +4,8 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/db/admin';
+import { createClient } from '@/lib/db/server';
 import { PUBLIC_EQUIPMENT_TAG } from '@/lib/data/equipment';
 import { equipmentSchema } from '@/lib/validations/common';
 import { emptyToNull, parseMoneyField, parseOptionalNumber, uniqueSlug } from '@/lib/forms';
@@ -53,8 +53,8 @@ async function storeEquipmentPhoto(file: File): Promise<{ path: string } | { err
     }
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.storage.from('equipment').upload(path, file, options);
+  const db = await createClient();
+  const { error } = await db.storage.from('equipment').upload(path, file, options);
   if (error) return { error: error.message || 'Não foi possível enviar a foto.' };
   return { path };
 }
@@ -115,7 +115,7 @@ export async function saveEquipment(formData: FormData) {
     payload.min_hours_per_day = parseOptionalNumber(parsed.data.min_hours_per_day) ?? 10;
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
   const photo = formData.get('photo');
   if (photo instanceof File && photo.size > 0) {
     const stored = await storeEquipmentPhoto(photo);
@@ -124,12 +124,12 @@ export async function saveEquipment(formData: FormData) {
   }
 
   if (id) {
-    const { data: current } = await supabase
+    const { data: current } = await db
       .from('equipment')
       .select('daily_cents, monthly_cents, hourly_cents, km_cents')
       .eq('id', id)
       .single();
-    const { error } = await supabase.from('equipment').update(payload).eq('id', id);
+    const { error } = await db.from('equipment').update(payload).eq('id', id);
     if (error) return { error: 'Não foi possível atualizar o equipamento.' };
     if (
       canWritePrice &&
@@ -155,7 +155,7 @@ export async function saveEquipment(formData: FormData) {
 
   payload.slug = uniqueSlug(parsed.data.name, crypto.randomUUID().slice(0, 6));
   payload.created_by = user.id;
-  const { data, error } = await supabase.from('equipment').insert(payload).select('id').single();
+  const { data, error } = await db.from('equipment').insert(payload).select('id').single();
   if (error || !data) return { error: 'Não foi possível cadastrar o equipamento.' };
   await writeAuditLog({ actorId: user.id, action: 'create', entity: 'equipment', entityId: data.id });
   revalidatePath('/admin/equipamentos');
@@ -172,9 +172,9 @@ export async function uploadEquipmentPhoto(formData: FormData) {
   const stored = await storeEquipmentPhoto(photo);
   if ('error' in stored) return { error: stored.error };
 
-  const supabase = await createClient();
-  const { data: current } = await supabase.from('equipment').select('photo_path').eq('id', id).maybeSingle();
-  const { error } = await supabase.from('equipment').update({ photo_path: stored.path }).eq('id', id);
+  const db = await createClient();
+  const { data: current } = await db.from('equipment').select('photo_path').eq('id', id).maybeSingle();
+  const { error } = await db.from('equipment').update({ photo_path: stored.path }).eq('id', id);
   if (error) return { error: error.message || 'Não foi possível salvar a foto.' };
 
   if (current?.photo_path) {
@@ -189,9 +189,9 @@ export async function uploadEquipmentPhoto(formData: FormData) {
 
 export async function removeEquipmentPhoto(id: string) {
   const user = await assertPermission('equipment.write');
-  const supabase = await createClient();
-  const { data: current } = await supabase.from('equipment').select('photo_path').eq('id', id).maybeSingle();
-  const { error } = await supabase.from('equipment').update({ photo_path: null }).eq('id', id);
+  const db = await createClient();
+  const { data: current } = await db.from('equipment').select('photo_path').eq('id', id).maybeSingle();
+  const { error } = await db.from('equipment').update({ photo_path: null }).eq('id', id);
   if (error) return { error: 'Não foi possível remover a foto.' };
 
   if (current?.photo_path) {
@@ -210,12 +210,12 @@ export async function updateEquipmentStatus(id: string, status: 'available' | 'r
   if (!id || !allowed.includes(status)) {
     return { error: 'Status inválido.' };
   }
-  const supabase = await createClient();
-  const { data: current } = await supabase.from('equipment').select('status').eq('id', id).maybeSingle();
+  const db = await createClient();
+  const { data: current } = await db.from('equipment').select('status').eq('id', id).maybeSingle();
   if (!current) return { error: 'Equipamento não encontrado.' };
   if (current.status === status) return { ok: true as const };
 
-  const { error } = await supabase.from('equipment').update({ status }).eq('id', id);
+  const { error } = await db.from('equipment').update({ status }).eq('id', id);
   if (error) return { error: error.message || 'Não foi possível atualizar o status.' };
 
   await writeAuditLog({
@@ -231,8 +231,8 @@ export async function updateEquipmentStatus(id: string, status: 'available' | 'r
 
 export async function softDeleteEquipment(id: string) {
   const user = await assertPermission('equipment.delete');
-  const supabase = await createClient();
-  const { error } = await supabase
+  const db = await createClient();
+  const { error } = await db
     .from('equipment')
     .update({ deleted_at: new Date().toISOString(), show_on_website: false, available_for_quote: false })
     .eq('id', id);

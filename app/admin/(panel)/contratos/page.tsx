@@ -1,5 +1,5 @@
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { ContractsBoard, type ContractBoardRow } from '@/components/admin/contracts-board';
 
 export const dynamic = 'force-dynamic';
@@ -13,11 +13,11 @@ export default async function ContractsPage({
   const { q } = await searchParams;
   const canWrite = user.permissions.includes('contracts.write');
   const canDelete = user.permissions.includes('contracts.delete');
-  const supabase = await createClient();
+  const db = await createClient();
 
   let data: ContractBoardRow[] = [];
   try {
-    const result = await supabase
+    const result = await db
       .from('contracts')
       .select(
         `

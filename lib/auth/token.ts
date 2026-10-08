@@ -1,26 +1,14 @@
-export const BOOTSTRAP_COOKIE = 'st_admin_session';
-export const BOOTSTRAP_MAX_AGE = 60 * 60 * 24 * 7;
-export const BOOTSTRAP_USER_ID = '00000000-0000-4000-a000-000000000001';
+export const SESSION_COOKIE = 'st_admin_session';
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
-type BootstrapPayload = {
+export type SessionPayload = {
+  sub: string;
   email: string;
   exp: number;
 };
 
 function authSecret() {
   return process.env.AUTH_SECRET?.trim() || '';
-}
-
-function bootstrapEmail() {
-  return process.env.ADMIN_EMAIL?.trim().toLowerCase() || '';
-}
-
-function bootstrapPassword() {
-  return process.env.ADMIN_PASSWORD ?? '';
-}
-
-export function isBootstrapConfigured() {
-  return Boolean(authSecret() && bootstrapEmail() && bootstrapPassword());
 }
 
 function bytesToBase64Url(bytes: ArrayBuffer | Uint8Array) {
@@ -64,46 +52,44 @@ async function signPayload(payload: string) {
   return bytesToBase64Url(signature);
 }
 
-export function verifyBootstrapPassword(email: string, password: string) {
-  if (!isBootstrapConfigured()) return false;
-  if (!safeEqual(email, bootstrapEmail())) return false;
-  return safeEqual(password, bootstrapPassword());
+export function isAuthConfigured() {
+  return Boolean(authSecret());
 }
 
-export async function createBootstrapToken(email: string) {
+export async function createSessionToken(userId: string, email: string) {
   const payload = textToBase64Url(
     JSON.stringify({
+      sub: userId,
       email,
-      exp: Date.now() + BOOTSTRAP_MAX_AGE * 1000,
-    } satisfies BootstrapPayload),
+      exp: Date.now() + SESSION_MAX_AGE * 1000,
+    } satisfies SessionPayload),
   );
   const signature = await signPayload(payload);
   return `${payload}.${signature}`;
 }
 
-export async function readBootstrapToken(token?: string | null) {
-  if (!token || !isBootstrapConfigured()) return null;
+export async function readSessionToken(token?: string | null): Promise<SessionPayload | null> {
+  if (!token || !isAuthConfigured()) return null;
   const [payload, signature] = token.split('.');
   if (!payload || !signature) return null;
   const expected = await signPayload(payload);
   if (!expected || !safeEqual(signature, expected)) return null;
 
   try {
-    const data = JSON.parse(base64UrlToText(payload)) as BootstrapPayload;
-    if (!data.email || data.exp < Date.now()) return null;
-    if (!safeEqual(data.email, bootstrapEmail())) return null;
+    const data = JSON.parse(base64UrlToText(payload)) as SessionPayload;
+    if (!data.sub || !data.email || data.exp < Date.now()) return null;
     return data;
   } catch {
     return null;
   }
 }
 
-export function bootstrapCookieOptions() {
+export function sessionCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: BOOTSTRAP_MAX_AGE,
+    maxAge: SESSION_MAX_AGE,
   };
 }

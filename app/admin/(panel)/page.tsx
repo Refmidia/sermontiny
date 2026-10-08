@@ -11,7 +11,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { PageHeader } from '@/components/admin/page-header';
 import { PageActionBar } from '@/components/admin/page-action-bar';
 import { StatCard } from '@/components/admin/stat-card';
@@ -89,19 +89,19 @@ export default async function DashboardPage() {
   let customersCount = 0;
 
   try {
-    const supabase = await createClient();
+    const db = await createClient();
     const results = await Promise.all([
-      supabase.from('quotes').select('id, status, created_at, quote_versions:current_version_id(total_cents, status)').is('deleted_at', null),
-      supabase.from('contracts').select('id, status, total_cents, created_at').is('deleted_at', null),
-      supabase
+      db.from('quotes').select('id, status, created_at, quote_versions:current_version_id(total_cents, status)').is('deleted_at', null),
+      db.from('contracts').select('id, status, total_cents, created_at').is('deleted_at', null),
+      db
         .from('quotes')
         .select('id, number, title, status, created_at, customers(legal_name)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(8),
-      supabase.from('quote_items').select('description, equipment_id, equipment(name)').limit(200),
-      supabase.from('leads').select('id', { count: 'exact', head: true }).eq('status', 'new').is('deleted_at', null),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+      db.from('quote_items').select('description, equipment_id, equipment(name)').limit(200),
+      db.from('leads').select('id', { count: 'exact', head: true }).eq('status', 'new').is('deleted_at', null),
+      db.from('customers').select('id', { count: 'exact', head: true }).is('deleted_at', null),
     ]);
     quotes = results[0];
     contracts = results[1];

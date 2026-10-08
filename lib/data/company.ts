@@ -1,8 +1,8 @@
 import { unstable_cache } from 'next/cache';
 import { SITE } from '@/lib/site';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
-import { createPublicReader, withPublicReadBreaker } from '@/lib/supabase/public-reader';
-import { createClient } from '@/lib/supabase/server';
+import { isDatabaseConfigured } from '@/lib/db/pool';
+import { createPublicReader, withPublicReadBreaker } from '@/lib/db/public-reader';
+import { createClient } from '@/lib/db/server';
 import type { CompanySettings } from '@/types/database';
 
 export const COMPANY_SETTINGS_TAG = 'company-settings';
@@ -31,7 +31,7 @@ export function fallbackCompanySettings(): CompanySettings {
     bank_name: null,
     bank_agency: null,
     bank_account: null,
-    pix_key: '16.592.847/0001-72',
+    pix_key: SITE.cnpj,
     default_payment_terms: null,
     default_commercial_terms: null,
     default_responsibilities: null,
@@ -50,10 +50,10 @@ export function fallbackCompanySettings(): CompanySettings {
 }
 
 export async function getCompanySettings() {
-  if (!isSupabaseConfigured()) return fallbackCompanySettings();
+  if (!isDatabaseConfigured()) return fallbackCompanySettings();
   try {
-    const supabase = await createClient();
-    const { data } = await supabase
+    const db = await createClient();
+    const { data } = await db
       .from('company_settings')
       .select('*')
       .eq('id', COMPANY_SETTINGS_ID)
@@ -79,7 +79,7 @@ const loadPublicCompanySettings = unstable_cache(
 
 /** Versão em cache para o site público; o painel usa getCompanySettings (sempre atual). */
 export async function getPublicCompanySettings() {
-  if (!isSupabaseConfigured()) return fallbackCompanySettings();
+  if (!isDatabaseConfigured()) return fallbackCompanySettings();
   const settings = await withPublicReadBreaker(loadPublicCompanySettings, null);
   if (!settings) return fallbackCompanySettings();
   return {

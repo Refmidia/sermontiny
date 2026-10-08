@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { quoteSchema } from '@/lib/validations/common';
 import { emptyToNull, parseMoneyField } from '@/lib/forms';
 import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
@@ -69,7 +69,7 @@ function parseItems(formData: FormData): ParsedItem[] {
 }
 
 async function persistVersion(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  db: Awaited<ReturnType<typeof createClient>>,
   quoteId: string,
   versionId: string | null,
   formData: FormData,
@@ -123,18 +123,18 @@ async function persistVersion(
 
   let currentVersionId = versionId;
   if (versionId) {
-    const { error } = await supabase.from('quote_versions').update(versionPayload).eq('id', versionId);
+    const { error } = await db.from('quote_versions').update(versionPayload).eq('id', versionId);
     if (error) throw new Error('Não foi possível atualizar a versão.');
-    await supabase.from('quote_items').delete().eq('quote_version_id', versionId);
+    await db.from('quote_items').delete().eq('quote_version_id', versionId);
   } else {
-    const { data: last } = await supabase
+    const { data: last } = await db
       .from('quote_versions')
       .select('version_number')
       .eq('quote_id', quoteId)
       .order('version_number', { ascending: false })
       .limit(1)
       .maybeSingle();
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('quote_versions')
       .insert({
         ...versionPayload,
@@ -149,7 +149,7 @@ async function persistVersion(
 
   if (!currentVersionId) throw new Error('Versão inválida.');
   if (items.length) {
-    const { error } = await supabase.from('quote_items').insert(
+    const { error } = await db.from('quote_items').insert(
       items.map((item) => ({
         quote_version_id: currentVersionId,
         ...item,
@@ -158,7 +158,7 @@ async function persistVersion(
     if (error) throw new Error('Não foi possível salvar os itens.');
   }
 
-  await supabase
+  await db
     .from('quotes')
     .update({
       current_version_id: currentVersionId,
@@ -201,16 +201,16 @@ export async function saveQuote(formData: FormData) {
   const items = parseItems(formData);
   if (!items.length) return { error: 'Inclua ao menos um item.' };
 
-  const supabase = await createClient();
+  const db = await createClient();
   const id = String(formData.get('id') || '');
 
   try {
     if (!id) {
-      const { data: numberData, error: numberError } = await supabase.rpc('next_document_number', {
+      const { data: numberData, error: numberError } = await db.rpc('next_document_number', {
         doc_kind: 'quote',
       });
       if (numberError || !numberData) return { error: 'Não foi possível gerar o número do orçamento.' };
-      const { data: quote, error } = await supabase
+      const { data: quote, error } = await db
         .from('quotes')
         .insert({
           number: numberData,
@@ -225,13 +225,13 @@ export async function saveQuote(formData: FormData) {
         .select('id')
         .single();
       if (error || !quote) return { error: 'Não foi possível criar o orçamento.' };
-      await persistVersion(supabase, quote.id, null, formData, user.id, items);
+      await persistVersion(db, quote.id, null, formData, user.id, items);
       await writeAuditLog({ actorId: user.id, action: 'create', entity: 'quotes', entityId: quote.id });
       revalidatePath('/admin/orcamentos');
       redirect(`/admin/orcamentos/${quote.id}`);
     }
 
-    const { data: current } = await supabase
+    const { data: current } = await db
       .from('quotes')
       .select('id, current_version_id, quote_versions:current_version_id(id, locked, status)')
       .eq('id', id)
@@ -240,7 +240,7 @@ export async function saveQuote(formData: FormData) {
       ? current?.quote_versions[0]
       : current?.quote_versions;
     if (version?.locked || version?.status === 'approved') {
-      const newVersionId = await persistVersion(supabase, id, null, formData, user.id, items);
+      const newVersionId = await persistVersion(db, id, null, formData, user.id, items);
       await writeAuditLog({
         actorId: user.id,
         action: 'update',
@@ -249,7 +249,7 @@ export async function saveQuote(formData: FormData) {
         metadata: { reason: 'new_version_after_lock' },
       });
     } else {
-      await persistVersion(supabase, id, current?.current_version_id ?? null, formData, user.id, items);
+      await persistVersion(db, id, current?.current_version_id ?? null, formData, user.id, items);
       await writeAuditLog({ actorId: user.id, action: 'update', entity: 'quotes', entityId: id });
     }
     revalidatePath('/admin/orcamentos');
@@ -262,8 +262,8 @@ export async function saveQuote(formData: FormData) {
 export async function changeQuoteStatus(quoteId: string, status: QuoteStatus) {
   const permission = status === 'approved' ? 'quotes.approve' : 'quotes.write';
   const user = await assertPermission(permission);
-  const supabase = await createClient();
-  const { data: quote } = await supabase
+  const db = await createClient();
+  const { data: quote } = await db
     .from('quotes')
     .select('id, current_version_id')
     .eq('id', quoteId)
@@ -272,9 +272,9 @@ export async function changeQuoteStatus(quoteId: string, status: QuoteStatus) {
 
   const updates: Record<string, unknown> = { status };
   if (status === 'approved') updates.locked = true;
-  const { error } = await supabase.from('quote_versions').update(updates).eq('id', quote.current_version_id);
+  const { error } = await db.from('quote_versions').update(updates).eq('id', quote.current_version_id);
   if (error) return { error: 'Não foi possível alterar o status.' };
-  await supabase.from('quotes').update({ status }).eq('id', quoteId);
+  await db.from('quotes').update({ status }).eq('id', quoteId);
   await writeAuditLog({
     actorId: user.id,
     action: status === 'approved' ? 'approve' : 'update',
@@ -288,21 +288,21 @@ export async function changeQuoteStatus(quoteId: string, status: QuoteStatus) {
 
 export async function duplicateQuote(quoteId: string) {
   const user = await assertPermission('quotes.write');
-  const supabase = await createClient();
-  const { data: quote } = await supabase.from('quotes').select('*').eq('id', quoteId).single();
-  const { data: version } = await supabase
+  const db = await createClient();
+  const { data: quote } = await db.from('quotes').select('*').eq('id', quoteId).single();
+  const { data: version } = await db
     .from('quote_versions')
     .select('*')
     .eq('id', quote?.current_version_id)
     .single();
-  const { data: items } = await supabase
+  const { data: items } = await db
     .from('quote_items')
     .select('*')
     .eq('quote_version_id', version?.id);
   if (!quote || !version) return { error: 'Orçamento não encontrado.' };
 
-  const { data: numberData } = await supabase.rpc('next_document_number', { doc_kind: 'quote' });
-  const { data: created, error } = await supabase
+  const { data: numberData } = await db.rpc('next_document_number', { doc_kind: 'quote' });
+  const { data: created, error } = await db
     .from('quotes')
     .insert({
       number: numberData,
@@ -318,7 +318,7 @@ export async function duplicateQuote(quoteId: string) {
     .single();
   if (error || !created) return { error: 'Não foi possível duplicar.' };
 
-  const { data: newVersion, error: versionError } = await supabase
+  const { data: newVersion, error: versionError } = await db
     .from('quote_versions')
     .insert({
       quote_id: created.id,
@@ -347,7 +347,7 @@ export async function duplicateQuote(quoteId: string) {
     .single();
   if (versionError || !newVersion) return { error: 'Falha ao copiar a versão.' };
   if (items?.length) {
-    await supabase.from('quote_items').insert(
+    await db.from('quote_items').insert(
       items.map((item) => {
         const nextItem = { ...item, quote_version_id: newVersion.id };
         delete (nextItem as { id?: string }).id;
@@ -356,30 +356,30 @@ export async function duplicateQuote(quoteId: string) {
       }),
     );
   }
-  await supabase.from('quotes').update({ current_version_id: newVersion.id }).eq('id', created.id);
+  await db.from('quotes').update({ current_version_id: newVersion.id }).eq('id', created.id);
   await writeAuditLog({ actorId: user.id, action: 'create', entity: 'quotes', entityId: created.id });
   redirect(`/admin/orcamentos/${created.id}`);
 }
 
 export async function createQuoteVersion(quoteId: string) {
   const user = await assertPermission('quotes.write');
-  const supabase = await createClient();
-  const { data: quote } = await supabase
+  const db = await createClient();
+  const { data: quote } = await db
     .from('quotes')
     .select('current_version_id')
     .eq('id', quoteId)
     .single();
   if (!quote?.current_version_id) return { error: 'Versão atual não encontrada.' };
-  const { data: version } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).single();
-  const { data: items } = await supabase.from('quote_items').select('*').eq('quote_version_id', version?.id);
-  const { data: last } = await supabase
+  const { data: version } = await db.from('quote_versions').select('*').eq('id', quote.current_version_id).single();
+  const { data: items } = await db.from('quote_items').select('*').eq('quote_version_id', version?.id);
+  const { data: last } = await db
     .from('quote_versions')
     .select('version_number')
     .eq('quote_id', quoteId)
     .order('version_number', { ascending: false })
     .limit(1)
     .maybeSingle();
-  const { data: created, error } = await supabase
+  const { data: created, error } = await db
     .from('quote_versions')
     .insert({
       quote_id: quoteId,
@@ -409,7 +409,7 @@ export async function createQuoteVersion(quoteId: string) {
     .single();
   if (error || !created) return { error: 'Não foi possível criar a nova versão.' };
   if (items?.length) {
-    await supabase.from('quote_items').insert(
+    await db.from('quote_items').insert(
       items.map((item) => {
         const nextItem = { ...item, quote_version_id: created.id };
         delete (nextItem as { id?: string }).id;
@@ -418,7 +418,7 @@ export async function createQuoteVersion(quoteId: string) {
       }),
     );
   }
-  await supabase.from('quotes').update({ current_version_id: created.id, status: 'draft' }).eq('id', quoteId);
+  await db.from('quotes').update({ current_version_id: created.id, status: 'draft' }).eq('id', quoteId);
   revalidatePath(`/admin/orcamentos/${quoteId}`);
   return { ok: true as const };
 }
@@ -426,7 +426,7 @@ export async function createQuoteVersion(quoteId: string) {
 export async function softDeleteQuote(quoteId: string) {
   const user = await assertPermission('quotes.delete');
   if (!quoteId) return { error: 'Orçamento inválido.' };
-  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const { createAdminClient } = await import('@/lib/db/admin');
   const admin = createAdminClient();
   const { data: quote } = await admin
     .from('quotes')

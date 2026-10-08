@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/db/admin';
 import type { WhatsAppProvider } from '@/types/database';
 
 export type WhatsAppSendInput = {
@@ -27,11 +27,11 @@ function applyTemplate(template: string, values: Record<string, string>) {
 export { applyTemplate };
 
 export async function sendWhatsApp(input: WhatsAppSendInput): Promise<WhatsAppSendResult> {
-  const supabase = createAdminClient();
+  const db = createAdminClient();
 
   if (input.provider === 'wa_me') {
     const link = `https://wa.me/${input.to.replace(/\D/g, '')}?text=${encodeURIComponent(input.body)}`;
-    const { data } = await supabase
+    const { data } = await db
       .from('whatsapp_messages')
       .insert({
         provider: 'wa_me',
@@ -51,7 +51,7 @@ export async function sendWhatsApp(input: WhatsAppSendInput): Promise<WhatsAppSe
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!token || !phoneNumberId) {
-    await supabase.from('whatsapp_messages').insert({
+    await db.from('whatsapp_messages').insert({
       provider: 'cloud_api',
       to_number: input.to,
       body: input.body,
@@ -76,7 +76,7 @@ export async function sendWhatsApp(input: WhatsAppSendInput): Promise<WhatsAppSe
     };
 
     if (input.documentPath) {
-      const { data: signed } = await supabase.storage
+      const { data: signed } = await db.storage
         .from('documents')
         .createSignedUrl(input.documentPath, 60 * 10);
       payload.document = {
@@ -101,7 +101,7 @@ export async function sendWhatsApp(input: WhatsAppSendInput): Promise<WhatsAppSe
       throw new Error(json.error?.message || 'Falha na API do WhatsApp.');
     }
     const messageId = json.messages?.[0]?.id;
-    await supabase.from('whatsapp_messages').insert({
+    await db.from('whatsapp_messages').insert({
       provider: 'cloud_api',
       to_number: input.to,
       body: input.body,
@@ -115,7 +115,7 @@ export async function sendWhatsApp(input: WhatsAppSendInput): Promise<WhatsAppSe
     return { status: 'sent', providerMessageId: messageId };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha no envio.';
-    await supabase.from('whatsapp_messages').insert({
+    await db.from('whatsapp_messages').insert({
       provider: 'cloud_api',
       to_number: input.to,
       body: input.body,

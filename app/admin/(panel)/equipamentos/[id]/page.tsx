@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { PageHeader } from '@/components/admin/page-header';
 import { EquipmentForm } from '@/components/admin/equipment-form';
 import { EquipmentPhotoField } from '@/components/admin/equipment-photo-field';
@@ -21,12 +21,12 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
   const user = await requirePermission('equipment.read');
   const canWrite = hasPermission(user.permissions, 'equipment.write');
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: equipment } = await supabase.from('equipment').select('*').eq('id', id).is('deleted_at', null).maybeSingle();
+  const db = await createClient();
+  const { data: equipment } = await db.from('equipment').select('*').eq('id', id).is('deleted_at', null).maybeSingle();
   if (!equipment) notFound();
   const [{ data: history }, { data: items }] = await Promise.all([
-    supabase.from('equipment_price_history').select('*').eq('equipment_id', id).order('valid_from', { ascending: false }),
-    supabase
+    db.from('equipment_price_history').select('*').eq('equipment_id', id).order('valid_from', { ascending: false }),
+    db
       .from('quote_items')
       .select('id, description, quote_versions(quotes(id, number, status, title))')
       .eq('equipment_id', id)

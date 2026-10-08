@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
-import { createPublicReader, withPublicReadBreaker } from '@/lib/supabase/public-reader';
+import { isDatabaseConfigured } from '@/lib/db/pool';
+import { createPublicReader, withPublicReadBreaker } from '@/lib/db/public-reader';
 import type { Equipment } from '@/types/database';
 
 export const PUBLIC_EQUIPMENT_TAG = 'public-equipment';
@@ -24,7 +24,7 @@ const loadPublicEquipment = unstable_cache(
 );
 
 export async function getPublicEquipment(): Promise<Equipment[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (!isDatabaseConfigured()) return [];
   return withPublicReadBreaker(loadPublicEquipment, []);
 }
 

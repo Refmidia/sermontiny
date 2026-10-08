@@ -3,15 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/db/admin';
+import { createClient } from '@/lib/db/server';
 import { getCompanySettings } from '@/lib/data/company';
 import { renderQuotePdfBuffer } from '@/lib/pdf/quote-file';
 import { renderPdfBuffer } from '@/lib/pdf/render';
 import { ContractPdf } from '@/lib/pdf/documents';
 import { sendWhatsApp, applyTemplate } from '@/lib/whatsapp';
 import { formatDateBr, toWhatsAppDigits } from '@/lib/format';
-import { BOOTSTRAP_USER_ID } from '@/lib/auth/bootstrap';
 import { RESPONSIBILITY_LABELS, type ResponsibilityParty } from '@/types/database';
 
 function publicDocumentUrl(token: string) {
@@ -44,12 +43,12 @@ export async function generateQuotePdf(quoteId: string, lockImmutable = false) {
         is_immutable: lockImmutable,
         access_token: token,
         token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        created_by: user.id === BOOTSTRAP_USER_ID ? null : user.id,
+        created_by: user.id,
       })
       .select('id, access_token')
       .single();
     if (error || !document) return { error: error?.message || 'PDF gerado, mas não registrado.' };
-    await writeAuditLog({ actorId: user.id === BOOTSTRAP_USER_ID ? null : user.id, action: 'pdf_generate', entity: 'quotes', entityId: quoteId });
+    await writeAuditLog({ actorId: user.id, action: 'pdf_generate', entity: 'quotes', entityId: quoteId });
     revalidatePath(`/admin/orcamentos/${quoteId}`);
     return { ok: true as const, documentId: document.id, url: publicDocumentUrl(token) };
   } catch (caught) {
@@ -60,10 +59,10 @@ export async function generateQuotePdf(quoteId: string, lockImmutable = false) {
 
 export async function generateContractPdf(contractId: string) {
   const user = await assertPermission('documents.write');
-  const supabase = await createClient();
+  const db = await createClient();
   const admin = createAdminClient();
   const settings = await getCompanySettings();
-  const { data: contract } = await supabase
+  const { data: contract } = await db
     .from('contracts')
     .select('*, customers(*), contract_versions:current_version_id(*)')
     .eq('id', contractId)
@@ -73,7 +72,7 @@ export async function generateContractPdf(contractId: string) {
     : contract?.contract_versions;
   const customer = Array.isArray(contract?.customers) ? contract?.customers[0] : contract?.customers;
   if (!contract || !version || !customer) return { error: 'Contrato incompleto.' };
-  const { data: clauses } = await supabase
+  const { data: clauses } = await db
     .from('contract_clauses')
     .select('*')
     .eq('contract_version_id', version.id)
@@ -141,9 +140,9 @@ export async function sendQuoteWhatsApp(quoteId: string, to: string) {
   const user = await assertPermission('whatsapp.send');
   const generated = await generateQuotePdf(quoteId, true);
   if (!generated.ok || !generated.url) return generated;
-  const supabase = await createClient();
+  const db = await createClient();
   const settings = await getCompanySettings();
-  const { data: quote } = await supabase
+  const { data: quote } = await db
     .from('quotes')
     .select('number, title, quote_versions:current_version_id(valid_until, title), customers(legal_name, whatsapp_ddi, whatsapp_number)')
     .eq('id', quoteId)
@@ -181,9 +180,9 @@ export async function sendContractWhatsApp(contractId: string, to: string) {
   const user = await assertPermission('whatsapp.send');
   const generated = await generateContractPdf(contractId);
   if (!generated.ok || !generated.url) return generated;
-  const supabase = await createClient();
+  const db = await createClient();
   const settings = await getCompanySettings();
-  const { data: contract } = await supabase
+  const { data: contract } = await db
     .from('contracts')
     .select('number, object, customers(legal_name, whatsapp_ddi, whatsapp_number)')
     .eq('id', contractId)

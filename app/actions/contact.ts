@@ -3,8 +3,8 @@
 import { contactSchema } from '@/lib/validations/common';
 import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
 import { getClientIp, rateLimit } from '@/lib/rate-limit';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { isDatabaseConfigured } from '@/lib/db/pool';
+import { createAdminClient } from '@/lib/db/admin';
 import { headers } from 'next/headers';
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -33,16 +33,16 @@ export async function submitContact(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' };
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return {
       ok: false,
-      error: 'O formulário está pronto, mas o banco ainda não foi conectado. Configure o Supabase.',
+      error: 'O formulário está pronto, mas o banco ainda não foi conectado. Configure o MySQL.',
     };
   }
 
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase.from('leads').insert({
+    const db = createAdminClient();
+    const { error } = await db.from('leads').insert({
       name: sanitizePlainText(parsed.data.name),
       email: parsed.data.email || null,
       phone: parsed.data.phone || null,

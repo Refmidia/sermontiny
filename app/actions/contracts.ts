@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { contractSchema } from '@/lib/validations/common';
 import { emptyToNull } from '@/lib/forms';
 import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
@@ -22,9 +22,9 @@ const REQUIRED_PARTIES = [
 /** Cria (ou reabre) o contrato a partir do orçamento. Aprova automaticamente se ainda não estiver aprovado. */
 export async function createContractFromQuote(quoteId: string) {
   const user = await assertPermission('contracts.write');
-  const supabase = await createClient();
+  const db = await createClient();
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('contracts')
     .select('id')
     .eq('quote_id', quoteId)
@@ -36,7 +36,7 @@ export async function createContractFromQuote(quoteId: string) {
     return { contractId: existing.id as string };
   }
 
-  const { data: quote } = await supabase
+  const { data: quote } = await db
     .from('quotes')
     .select('*, quote_versions:current_version_id(*)')
     .eq('id', quoteId)
@@ -49,21 +49,21 @@ export async function createContractFromQuote(quoteId: string) {
 
   const isApproved = version.status === 'approved' || quote.status === 'approved';
   if (!isApproved) {
-    await supabase
+    await db
       .from('quote_versions')
       .update({ status: 'approved', locked: true })
       .eq('id', version.id);
-    await supabase.from('quotes').update({ status: 'approved' }).eq('id', quote.id);
+    await db.from('quotes').update({ status: 'approved' }).eq('id', quote.id);
     version.status = 'approved';
     quote.status = 'approved';
   }
 
-  const { data: numberData, error: numberError } = await supabase.rpc('next_document_number', {
+  const { data: numberData, error: numberError } = await db.rpc('next_document_number', {
     doc_kind: 'contract',
   });
   if (numberError || !numberData) return { error: 'Não foi possível gerar o número do contrato.' };
 
-  const { data: contract, error } = await supabase
+  const { data: contract, error } = await db
     .from('contracts')
     .insert({
       number: numberData,
@@ -87,7 +87,7 @@ export async function createContractFromQuote(quoteId: string) {
     return { error: error?.message || 'Não foi possível criar o contrato.' };
   }
 
-  const { data: contractVersion } = await supabase
+  const { data: contractVersion } = await db
     .from('contract_versions')
     .insert({
       contract_id: contract.id,
@@ -101,9 +101,9 @@ export async function createContractFromQuote(quoteId: string) {
     .select('id')
     .single();
 
-  const { data: library } = await supabase.from('clause_library').select('*').eq('is_active', true).order('sort_order');
+  const { data: library } = await db.from('clause_library').select('*').eq('is_active', true).order('sort_order');
   if (contractVersion && library?.length) {
-    await supabase.from('contract_clauses').insert(
+    await db.from('contract_clauses').insert(
       library.map((clause, index) => ({
         contract_version_id: contractVersion.id,
         library_id: clause.id,
@@ -114,9 +114,9 @@ export async function createContractFromQuote(quoteId: string) {
       })),
     );
   }
-  await supabase.from('contracts').update({ current_version_id: contractVersion?.id }).eq('id', contract.id);
-  await supabase.from('quotes').update({ status: 'converted' }).eq('id', quote.id);
-  await supabase.from('quote_versions').update({ status: 'converted', locked: true }).eq('id', version.id);
+  await db.from('contracts').update({ current_version_id: contractVersion?.id }).eq('id', contract.id);
+  await db.from('quotes').update({ status: 'converted' }).eq('id', quote.id);
+  await db.from('quote_versions').update({ status: 'converted', locked: true }).eq('id', version.id);
   await writeAuditLog({
     actorId: user.id,
     action: 'convert_contract',
@@ -167,7 +167,7 @@ export async function saveContract(formData: FormData) {
     }
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
   const id = String(formData.get('id') || '');
   const payload = {
     customer_id: parsed.data.customer_id,
@@ -189,16 +189,16 @@ export async function saveContract(formData: FormData) {
   };
 
   if (!id) return { error: 'Contrato inválido.' };
-  const { error } = await supabase.from('contracts').update(payload).eq('id', id);
+  const { error } = await db.from('contracts').update(payload).eq('id', id);
   if (error) return { error: 'Não foi possível salvar o contrato.' };
 
-  const { data: contract } = await supabase
+  const { data: contract } = await db
     .from('contracts')
     .select('current_version_id')
     .eq('id', id)
     .single();
   if (contract?.current_version_id) {
-    await supabase
+    await db
       .from('contract_versions')
       .update({
         object: payload.object,
@@ -207,14 +207,14 @@ export async function saveContract(formData: FormData) {
       })
       .eq('id', contract.current_version_id)
       .eq('locked', false);
-    const { data: clauses } = await supabase
+    const { data: clauses } = await db
       .from('contract_clauses')
       .select('id')
       .eq('contract_version_id', contract.current_version_id);
     for (const clause of clauses ?? []) {
       const enabled = parsed.data.enabled_clauses.includes(clause.id);
       const override = parsed.data.clause_overrides?.[clause.id];
-      await supabase
+      await db
         .from('contract_clauses')
         .update({
           is_enabled: enabled,
@@ -231,8 +231,8 @@ export async function saveContract(formData: FormData) {
 
 export async function changeContractStatus(id: string, status: ContractStatus) {
   const user = await assertPermission(status === 'signed' || status === 'active' ? 'contracts.sign' : 'contracts.write');
-  const supabase = await createClient();
-  const { data: contract } = await supabase.from('contracts').select('*').eq('id', id).single();
+  const db = await createClient();
+  const { data: contract } = await db.from('contracts').select('*').eq('id', id).single();
   if (!contract) return { error: 'Contrato não encontrado.' };
   if (['sent', 'awaiting_signature', 'signed', 'active'].includes(status)) {
     const missing = REQUIRED_PARTIES.filter((field) => !contract[field]);
@@ -243,7 +243,7 @@ export async function changeContractStatus(id: string, status: ContractStatus) {
       };
     }
   }
-  const { error } = await supabase
+  const { error } = await db
     .from('contracts')
     .update({
       status,
@@ -269,11 +269,11 @@ export async function attachSignedContract(formData: FormData) {
   if (!contractId || !(file instanceof File) || file.size === 0) {
     return { error: 'Selecione o arquivo assinado.' };
   }
-  const supabase = await createClient();
+  const db = await createClient();
   const path = `signed/${contractId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
-  const { error: uploadError } = await supabase.storage.from('documents').upload(path, file);
+  const { error: uploadError } = await db.storage.from('documents').upload(path, file);
   if (uploadError) return { error: 'Falha no envio do arquivo.' };
-  const { error } = await supabase.from('documents').insert({
+  const { error } = await db.from('documents').insert({
     kind: 'signed_contract',
     contract_id: contractId,
     storage_path: path,
@@ -290,7 +290,7 @@ export async function attachSignedContract(formData: FormData) {
 export async function softDeleteContract(contractId: string) {
   const user = await assertPermission('contracts.delete');
   if (!contractId) return { error: 'Contrato inválido.' };
-  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const { createAdminClient } = await import('@/lib/db/admin');
   const admin = createAdminClient();
   const { data: contract } = await admin
     .from('contracts')

@@ -3,9 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/db/admin';
+import { createClient } from '@/lib/db/server';
 import { ROLE_LABELS, type RoleSlug } from '@/lib/permissions';
+import { createAuthUser, listAuthUsers, updateAuthPassword } from '@/lib/auth/users';
 
 const PHOTO_MAX_BYTES = 1.5 * 1024 * 1024;
 const AVATARS_BUCKET = 'avatars';
@@ -23,20 +24,11 @@ export type AdminUserRow = {
   photoUrl: string | null;
 };
 
-async function ensureAvatarsBucket() {
-  const admin = createAdminClient();
-  const { data: buckets } = await admin.storage.listBuckets();
-  if (!buckets?.some((bucket) => bucket.name === AVATARS_BUCKET)) {
-    await admin.storage.createBucket(AVATARS_BUCKET, { public: false });
-  }
-}
-
 async function storeProfilePhoto(profileId: string, file: File) {
   if (!file.size) return { error: 'Selecione uma imagem.' };
   if (file.size > PHOTO_MAX_BYTES) return { error: 'A foto ficou grande demais. Tente outra imagem.' };
   if (!file.type.startsWith('image/')) return { error: 'Envie uma imagem (JPG, PNG ou WEBP).' };
 
-  await ensureAvatarsBucket();
   const admin = createAdminClient();
   // Sempre JPG compacto — evita PNG/WebP pesados no avatar.
   const path = `${profileId}.jpg`;
@@ -75,10 +67,10 @@ export async function listAdminUsers(): Promise<AdminUserRow[]> {
 
   const [{ data: roles }, authUsers] = await Promise.all([
     admin.from('roles').select('id, name, slug'),
-    admin.auth.admin.listUsers({ perPage: 200 }),
+    listAuthUsers().catch(() => []),
   ]);
 
-  const emailById = new Map((authUsers.data?.users ?? []).map((user) => [user.id, user.email ?? '']));
+  const emailById = new Map(authUsers.map((user) => [user.id, user.email]));
   const roleById = new Map((roles ?? []).map((role) => [role.id, role]));
 
   return (profilesResult.data ?? []).map((profile) => {
@@ -126,19 +118,15 @@ export async function createAdminUser(input: {
   const { data: role } = await admin.from('roles').select('id, slug').eq('id', roleId).maybeSingle();
   if (!role) return { error: 'Perfil inválido.' };
 
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: fullName },
-  });
-
-  if (createError || !created.user) {
-    return { error: createError?.message || 'Não foi possível criar o login.' };
+  let created: { id: string };
+  try {
+    created = await createAuthUser(email, password, fullName);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Não foi possível criar o login.' };
   }
 
   const { error: profileError } = await admin.from('profiles').upsert({
-    id: created.user.id,
+    id: created.id,
     full_name: fullName,
     phone,
     role_id: roleId,
@@ -151,9 +139,9 @@ export async function createAdminUser(input: {
   }
 
   if (input.photo && input.photo.size > 0) {
-    const photoResult = await storeProfilePhoto(created.user.id, input.photo);
+    const photoResult = await storeProfilePhoto(created.id, input.photo);
     if (photoResult.error) {
-      return { error: photoResult.error, userId: created.user.id };
+      return { error: photoResult.error, userId: created.id };
     }
   }
 
@@ -161,12 +149,12 @@ export async function createAdminUser(input: {
     actorId: actor.id,
     action: 'create',
     entity: 'profiles',
-    entityId: created.user.id,
+    entityId: created.id,
     metadata: { email, role: role.slug },
   });
   revalidatePath('/admin/usuarios');
   revalidatePath('/admin/configuracoes');
-  return { ok: true as const, userId: created.user.id };
+  return { ok: true as const, userId: created.id };
 }
 
 export async function updateAdminUser(input: {
@@ -212,10 +200,11 @@ export async function updateAdminUser(input: {
 
   const nextPassword = input.password?.trim() ?? '';
   if (nextPassword.length >= 8) {
-    const { error: passwordError } = await admin.auth.admin.updateUserById(profileId, {
-      password: nextPassword,
-    });
-    if (passwordError) return { error: passwordError.message || 'Não foi possível atualizar a senha.' };
+    try {
+      await updateAuthPassword(profileId, nextPassword);
+    } catch {
+      return { error: 'Não foi possível atualizar a senha.' };
+    }
   }
 
   await writeAuditLog({ actorId: actor.id, action: 'update', entity: 'profiles', entityId: profileId });
@@ -230,8 +219,8 @@ export async function updateUserRole(formData: FormData) {
   const roleId = String(formData.get('role_id') || '');
   const isActive = formData.get('is_active') === 'on';
   if (!profileId || !roleId) return { error: 'Usuário ou perfil inválido.' };
-  const supabase = await createClient();
-  const { error } = await supabase
+  const db = await createClient();
+  const { error } = await db
     .from('profiles')
     .update({ role_id: roleId, is_active: isActive })
     .eq('id', profileId);
@@ -263,12 +252,6 @@ export async function softDeleteAdminUser(profileId: string) {
     .update({ deleted_at: new Date().toISOString(), is_active: false })
     .eq('id', profileId);
   if (error) return { error: error.message || 'Não foi possível excluir o usuário.' };
-
-  try {
-    await admin.auth.admin.updateUserById(profileId, { ban_duration: '876000h' });
-  } catch {
-    // Perfil já fica inativo mesmo se o ban falhar.
-  }
 
   await writeAuditLog({
     actorId: actor.id,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { removeEquipmentPhoto, uploadEquipmentPhoto } from '@/app/actions/equipment';
 import { Button } from '@/components/ui/button';
+import { compressEquipmentPhoto } from '@/lib/images/compress-avatar';
 import { cn } from '@/lib/utils';
 
 export function EquipmentPhotoField({
@@ -31,17 +32,34 @@ export function EquipmentPhotoField({
   }
 
   function handleFiles(files: FileList | null) {
-    const file = files?.[0];
-    if (!file) return;
+    const original = files?.[0];
+    if (!original) return;
     setError(null);
-    setPreview(URL.createObjectURL(file));
+    setPreview(URL.createObjectURL(original));
 
-    if (!equipmentId) return;
-
-    const data = new FormData();
-    data.set('id', equipmentId);
-    data.set('photo', file);
     startTransition(async () => {
+      let file: File;
+      try {
+        file = await compressEquipmentPhoto(original);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'Não foi possível processar a foto.');
+        setPreview(null);
+        return;
+      }
+
+      if (!equipmentId) {
+        // No cadastro novo a foto vai junto com o formulário pelo próprio input.
+        if (inputRef.current) {
+          const transfer = new DataTransfer();
+          transfer.items.add(file);
+          inputRef.current.files = transfer.files;
+        }
+        return;
+      }
+
+      const data = new FormData();
+      data.set('id', equipmentId);
+      data.set('photo', file);
       try {
         const result = await uploadEquipmentPhoto(data);
         if (result?.error) {
@@ -130,7 +148,7 @@ export function EquipmentPhotoField({
             <span className="text-sm font-semibold text-navy">
               {canWrite ? 'Clique ou arraste a foto' : 'Sem foto'}
             </span>
-            {canWrite && <span className="text-xs text-muted">JPG, PNG ou WEBP até 8 MB</span>}
+            {canWrite && <span className="text-xs text-muted">JPG, PNG ou WEBP — reduzida automaticamente</span>}
           </span>
         )}
         {pending && (

@@ -1,5 +1,5 @@
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { sumReceivedByQuoteIds } from '@/app/actions/quote-payments';
 import { QuotesBoard, type QuoteBoardRow } from '@/components/admin/quotes-board';
 
@@ -33,12 +33,12 @@ export default async function QuotesPage() {
   const canWrite = user.permissions.includes('quotes.write');
   const canConvert = user.permissions.includes('contracts.write');
   const canDelete = user.permissions.includes('quotes.delete');
-  const supabase = await createClient();
+  const db = await createClient();
 
   let data: QuoteBoardRow[] = [];
   let usedFallback = false;
   try {
-    const full = await supabase
+    const full = await db
       .from('quotes')
       .select(FULL_SELECT)
       .is('deleted_at', null)
@@ -48,7 +48,7 @@ export default async function QuotesPage() {
       data = (full.data ?? []) as QuoteBoardRow[];
     } else {
       usedFallback = true;
-      const fallback = await supabase
+      const fallback = await db
         .from('quotes')
         .select(FALLBACK_SELECT)
         .is('deleted_at', null)

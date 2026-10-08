@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
 import type { LeadStatus } from '@/types/database';
 
@@ -24,12 +24,12 @@ export async function updateLeadStatus(id: string, status: LeadStatus) {
   const user = await assertPermission('leads.write');
   if (!id || !isLeadStatus(status)) return { error: 'Status inválido.' };
 
-  const supabase = await createClient();
-  const { data: current } = await supabase.from('leads').select('status').eq('id', id).maybeSingle();
+  const db = await createClient();
+  const { data: current } = await db.from('leads').select('status').eq('id', id).maybeSingle();
   if (!current) return { error: 'Contato não encontrado.' };
   if (current.status === status) return { ok: true as const };
 
-  const { error } = await supabase.from('leads').update({ status }).eq('id', id);
+  const { error } = await db.from('leads').update({ status }).eq('id', id);
   if (error) {
     const message = /invalid input value|enum/i.test(error.message)
       ? 'Este status ainda não está disponível no banco. Aplique a migration 0002_leads_crm.sql.'
@@ -51,9 +51,9 @@ export async function updateLeadStatus(id: string, status: LeadStatus) {
 export async function updateLeadNotes(id: string, notes: string) {
   const user = await assertPermission('leads.write');
   if (!id) return { error: 'Contato inválido.' };
-  const supabase = await createClient();
+  const db = await createClient();
   const payload = { notes: sanitizeMultiline(notes) || null };
-  const { error } = await supabase.from('leads').update(payload).eq('id', id);
+  const { error } = await db.from('leads').update(payload).eq('id', id);
   if (error) {
     const message = /column .*notes.* does not exist/i.test(error.message)
       ? 'Campo de observações ainda não existe no banco. Aplique a migration 0002_leads_crm.sql.'
@@ -84,8 +84,8 @@ export async function createLead(input: {
   const name = sanitizePlainText(input.name);
   if (!name) return { error: 'Informe o nome do contato.' };
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = await createClient();
+  const { data, error } = await db
     .from('leads')
     .insert({
       name,
@@ -120,7 +120,7 @@ export async function archiveLead(id: string) {
 export async function softDeleteLead(id: string) {
   const user = await assertPermission('leads.write');
   if (!id) return { error: 'Contato inválido.' };
-  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const { createAdminClient } = await import('@/lib/db/admin');
   const admin = createAdminClient();
   const { data: lead } = await admin
     .from('leads')

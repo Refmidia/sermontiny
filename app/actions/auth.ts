@@ -2,18 +2,13 @@
 
 import { redirect } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
-import { createUserClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/db/admin';
 import { writeAuditLog } from '@/lib/audit';
 import { loginSchema, recoverSchema } from '@/lib/validations/common';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
+import { isDatabaseConfigured } from '@/lib/db/pool';
 import { getClientIp, rateLimit } from '@/lib/rate-limit';
-import {
-  BOOTSTRAP_COOKIE,
-  bootstrapCookieOptions,
-  createBootstrapToken,
-  isBootstrapConfigured,
-  verifyBootstrapPassword,
-} from '@/lib/auth/bootstrap';
+import { SESSION_COOKIE, createSessionToken, isAuthConfigured, sessionCookieOptions } from '@/lib/auth/token';
+import { verifyCredentials } from '@/lib/auth/users';
 
 export async function loginAction(formData: FormData) {
   const parsed = loginSchema.safeParse({
@@ -30,52 +25,38 @@ export async function loginAction(formData: FormData) {
     return { error: 'Muitas tentativas de acesso. Aguarde alguns minutos.' };
   }
 
-  if (verifyBootstrapPassword(parsed.data.email, parsed.data.password)) {
-    const token = await createBootstrapToken(parsed.data.email);
-    const cookieStore = await cookies();
-    cookieStore.set(BOOTSTRAP_COOKIE, token, bootstrapCookieOptions());
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = await createUserClient();
-        await supabase.auth.signInWithPassword(parsed.data);
-      } catch {
-        // O painel já entra pelo cookie de emergência.
-      }
-    }
-    const next = String(formData.get('next') || '/admin');
-    redirect(next.startsWith('/admin') ? next : '/admin');
+  if (!isDatabaseConfigured() || !isAuthConfigured()) {
+    return { error: 'Configure MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE e AUTH_SECRET.' };
   }
 
-  if (!isSupabaseConfigured()) {
-    return {
-      error: isBootstrapConfigured()
-        ? 'E-mail ou senha inválidos.'
-        : 'Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.',
-    };
+  let user: Awaited<ReturnType<typeof verifyCredentials>>;
+  try {
+    user = await verifyCredentials(parsed.data.email, parsed.data.password);
+  } catch {
+    return { error: 'Não foi possível conectar ao banco de dados. Tente novamente em instantes.' };
   }
-
-  const supabase = await createUserClient();
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error || !data.user) {
+  if (!user) {
     return { error: 'E-mail ou senha inválidos.' };
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await createAdminClient()
     .from('profiles')
     .select('is_active, deleted_at')
-    .eq('id', data.user.id)
+    .eq('id', user.id)
     .maybeSingle();
 
   if (!profile?.is_active || profile.deleted_at) {
-    await supabase.auth.signOut();
     return { error: 'Usuário sem autorização para o painel. Solicite ativação ao administrador.' };
   }
 
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, await createSessionToken(user.id, user.email), sessionCookieOptions());
+
   await writeAuditLog({
-    actorId: data.user.id,
+    actorId: user.id,
     action: 'login',
     entity: 'profiles',
-    entityId: data.user.id,
+    entityId: user.id,
   });
 
   const next = String(formData.get('next') || '/admin');
@@ -83,34 +64,17 @@ export async function loginAction(formData: FormData) {
 }
 
 export async function recoverAction(formData: FormData) {
-  if (!isSupabaseConfigured()) {
-    return { error: 'Supabase não configurado.' };
-  }
   const parsed = recoverSchema.safeParse({ email: formData.get('email') });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'E-mail inválido.' };
   }
-  const supabase = await createUserClient();
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${origin}/auth/callback?next=/admin`,
-  });
-  if (error) {
-    return { error: 'Não foi possível enviar o e-mail de recuperação.' };
-  }
-  return { ok: true as const };
+  return {
+    error: 'Para redefinir a senha, peça a um administrador do painel (Usuários → editar → nova senha).',
+  };
 }
 
 export async function logoutAction() {
   const cookieStore = await cookies();
-  cookieStore.set(BOOTSTRAP_COOKIE, '', { ...bootstrapCookieOptions(), maxAge: 0 });
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = await createUserClient();
-      await supabase.auth.signOut();
-    } catch {
-      // O Auth pode estar indisponível; a sessão local já foi encerrada.
-    }
-  }
+  cookieStore.set(SESSION_COOKIE, '', { ...sessionCookieOptions(), maxAge: 0 });
   redirect('/admin/login');
 }

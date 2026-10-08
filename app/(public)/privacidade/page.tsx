@@ -29,8 +29,8 @@ export default function PrivacyPage() {
       </p>
       <h2 className="mt-8 text-2xl font-semibold text-navy">Compartilhamento</h2>
       <p className="mt-3 text-sm leading-7 text-muted">
-        Utilizamos operadores de hospedagem, autenticação e armazenamento (incluindo Supabase e, quando
-        configurado, a API oficial do WhatsApp). Não vendemos dados pessoais.
+        Utilizamos operadores de hospedagem, banco de dados e armazenamento (incluindo Vercel, Hostinger e,
+        quando configurado, a API oficial do WhatsApp). Não vendemos dados pessoais.
       </p>
       <h2 className="mt-8 text-2xl font-semibold text-navy">Direitos do titular</h2>
       <p className="mt-3 text-sm leading-7 text-muted">

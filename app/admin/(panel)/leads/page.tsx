@@ -1,5 +1,5 @@
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { LeadsBoard, type LeadRow } from '@/components/admin/leads-board';
 
 export const dynamic = 'force-dynamic';
@@ -7,17 +7,17 @@ export const dynamic = 'force-dynamic';
 export default async function LeadsPage() {
   const user = await requirePermission('leads.read');
   const canWrite = user.permissions.includes('leads.write');
-  const supabase = await createClient();
+  const db = await createClient();
 
   let rows: LeadRow[] = [];
-  const withAssignee = await supabase
+  const withAssignee = await db
     .from('leads')
     .select('*, equipment(name), assignee:assigned_to(full_name, roles(name))')
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (withAssignee.error) {
-    const fallback = await supabase
+    const fallback = await db
       .from('leads')
       .select('*, equipment(name)')
       .is('deleted_at', null)

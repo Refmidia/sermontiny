@@ -4,10 +4,9 @@ import { getCompanySettings } from '@/lib/data/company';
 import { PageHeader } from '@/components/admin/page-header';
 import { SettingsTabs } from '@/components/admin/settings-tabs';
 import { FormField, FormSection } from '@/components/admin/form-section';
-import { FormActions } from '@/components/admin/form-actions';
 import { ContentCard } from '@/components/admin/content-card';
 import { PageActionBar } from '@/components/admin/page-action-bar';
-import { saveCompanySettings } from '@/app/actions/settings';
+import { SettingsForm } from '@/components/admin/settings-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,12 +31,7 @@ export default async function SettingsPage() {
           ) : null
         }
       />
-      <form
-        action={async (formData) => {
-          'use server';
-          await saveCompanySettings(formData);
-        }}
-      >
+      <SettingsForm>
         <SettingsTabs
           company={
             <div className="space-y-4">
@@ -99,7 +93,7 @@ export default async function SettingsPage() {
                 </FormField>
                 <FormField
                   label="Chave Pix"
-                  hint="Essa chave gera o QR Code verde da proposta, já com o valor do orçamento."
+                  hint="Gera o QR Code Pix da proposta já com o valor do orçamento. Se ficar vazia, usa o CNPJ da empresa."
                 >
                   <Input name="pix_key" defaultValue={settings.pix_key ?? ''} />
                 </FormField>
@@ -173,12 +167,7 @@ export default async function SettingsPage() {
             </ContentCard>
           }
         />
-        <FormActions className="mt-4">
-          <Button type="submit" variant="gold">
-            Salvar configurações
-          </Button>
-        </FormActions>
-      </form>
+      </SettingsForm>
     </div>
   );
 }

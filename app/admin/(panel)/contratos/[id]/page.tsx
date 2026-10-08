@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { PageHeader } from '@/components/admin/page-header';
 import { ContractForm } from '@/components/admin/contract-form';
 import { Button } from '@/components/ui/button';
@@ -19,14 +19,14 @@ export const dynamic = 'force-dynamic';
 export default async function ContractDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission('contracts.read');
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: contract } = await supabase.from('contracts').select('*').eq('id', id).maybeSingle();
+  const db = await createClient();
+  const { data: contract } = await db.from('contracts').select('*').eq('id', id).maybeSingle();
   if (!contract) notFound();
   const [{ data: clauses }, { data: documents }, { data: audit }, { data: messages }] = await Promise.all([
-    supabase.from('contract_clauses').select('*').eq('contract_version_id', contract.current_version_id).order('sort_order'),
-    supabase.from('documents').select('*').eq('contract_id', id),
-    supabase.from('audit_logs').select('id, action, created_at, metadata').eq('entity', 'contracts').eq('entity_id', id).order('created_at', { ascending: false }).limit(20),
-    supabase.from('whatsapp_messages').select('id, to_number, status, created_at').eq('contract_id', id).order('created_at', { ascending: false }).limit(20),
+    db.from('contract_clauses').select('*').eq('contract_version_id', contract.current_version_id).order('sort_order'),
+    db.from('documents').select('*').eq('contract_id', id),
+    db.from('audit_logs').select('id, action, created_at, metadata').eq('entity', 'contracts').eq('entity_id', id).order('created_at', { ascending: false }).limit(20),
+    db.from('whatsapp_messages').select('id, to_number, status, created_at').eq('contract_id', id).order('created_at', { ascending: false }).limit(20),
   ]);
 
   const pdfDocs = (documents ?? []).filter((doc) => doc.kind === 'contract_pdf' || doc.access_token);

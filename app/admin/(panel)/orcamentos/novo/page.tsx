@@ -1,5 +1,5 @@
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { PageHeader } from '@/components/admin/page-header';
 import { QuoteForm } from '@/components/admin/quote-form';
 import type { Equipment } from '@/types/database';
@@ -8,12 +8,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function NewQuotePage() {
   await requirePermission('quotes.write');
-  const supabase = await createClient();
+  const db = await createClient();
   const [{ data: customers }, { data: units }, { data: contacts }, { data: equipment }] = await Promise.all([
-    supabase.from('customers').select('id, legal_name').is('deleted_at', null).order('legal_name'),
-    supabase.from('customer_units').select('id, customer_id, name').is('deleted_at', null),
-    supabase.from('customer_contacts').select('id, customer_id, name').is('deleted_at', null),
-    supabase.from('equipment').select('*').is('deleted_at', null).eq('available_for_quote', true),
+    db.from('customers').select('id, legal_name').is('deleted_at', null).order('legal_name'),
+    db.from('customer_units').select('id, customer_id, name').is('deleted_at', null),
+    db.from('customer_contacts').select('id, customer_id, name').is('deleted_at', null),
+    db.from('equipment').select('*').is('deleted_at', null).eq('available_for_quote', true),
   ]);
 
   return (

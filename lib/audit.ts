@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import type { AuditAction } from '@/types/database';
 
 export async function writeAuditLog(input: {
@@ -9,8 +9,8 @@ export async function writeAuditLog(input: {
   metadata?: Record<string, unknown>;
 }) {
   try {
-    const supabase = await createClient();
-    await supabase.from('audit_logs').insert({
+    const db = await createClient();
+    await db.from('audit_logs').insert({
       actor_id: input.actorId ?? null,
       action: input.action,
       entity: input.entity,

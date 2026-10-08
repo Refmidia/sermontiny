@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { getCompanySettings } from '@/lib/data/company';
 import { renderPdfBuffer } from '@/lib/pdf/render';
 import { QuotePdf } from '@/lib/pdf/quote-pdf';
@@ -6,9 +6,9 @@ import { buildQuoteDocument, withQuotePix } from '@/lib/pdf/quote-document';
 import type { Customer, QuoteItem, QuoteVersion } from '@/types/database';
 
 export async function renderQuotePdfBuffer(quoteId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
   const settings = await getCompanySettings();
-  const { data: quote, error } = await supabase
+  const { data: quote, error } = await db
     .from('quotes')
     .select('*, customers(*), customer_units(*), quote_versions:current_version_id(*)')
     .eq('id', quoteId)
@@ -20,7 +20,7 @@ export async function renderQuotePdfBuffer(quoteId: string) {
   if (!quote || !version || !customer) {
     throw new Error('Orçamento incompleto para gerar o PDF.');
   }
-  const { data: items } = await supabase.from('quote_items').select('*').eq('quote_version_id', version.id);
+  const { data: items } = await db.from('quote_items').select('*').eq('quote_version_id', version.id);
   const doc = await withQuotePix(
     buildQuoteDocument({
       settings,

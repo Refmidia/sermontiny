@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { getCompanySettings } from '@/lib/data/company';
 import { buildQuoteDocument, withQuotePix } from '@/lib/pdf/quote-document';
 import { QuotePrintView } from '@/components/admin/quote-print-view';
@@ -20,9 +20,9 @@ export const metadata: Metadata = {
 export default async function QuoteDocumentPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission('quotes.read');
   const { id } = await params;
-  const supabase = await createClient();
+  const db = await createClient();
   const settings = await getCompanySettings();
-  const { data: quote } = await supabase
+  const { data: quote } = await db
     .from('quotes')
     .select('*, customers(*), customer_units(*), quote_versions:current_version_id(*)')
     .eq('id', id)
@@ -31,7 +31,7 @@ export default async function QuoteDocumentPage({ params }: { params: Promise<{ 
   const customer = Array.isArray(quote?.customers) ? quote?.customers[0] : quote?.customers;
   const unit = Array.isArray(quote?.customer_units) ? quote?.customer_units[0] : quote?.customer_units;
   if (!quote || !version || !customer) notFound();
-  const { data: items } = await supabase.from('quote_items').select('*').eq('quote_version_id', version.id).order('sort_order');
+  const { data: items } = await db.from('quote_items').select('*').eq('quote_version_id', version.id).order('sort_order');
 
   const doc = await withQuotePix(
     buildQuoteDocument({

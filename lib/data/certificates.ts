@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
-import { createPublicReader, withPublicReadBreaker } from '@/lib/supabase/public-reader';
+import { isDatabaseConfigured } from '@/lib/db/pool';
+import { createPublicReader, withPublicReadBreaker } from '@/lib/db/public-reader';
 
 export type PublicCertificate = { id: string; file_name: string; storage_path: string };
 
@@ -23,6 +23,6 @@ const loadPublicCertificates = unstable_cache(
 );
 
 export async function getPublicCertificates(): Promise<PublicCertificate[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (!isDatabaseConfigured()) return [];
   return withPublicReadBreaker(loadPublicCertificates, []);
 }

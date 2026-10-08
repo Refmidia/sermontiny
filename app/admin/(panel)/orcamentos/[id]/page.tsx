@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { PageHeader } from '@/components/admin/page-header';
 import { QuoteForm } from '@/components/admin/quote-form';
 import { ContentCard } from '@/components/admin/content-card';
@@ -18,25 +18,25 @@ export const dynamic = 'force-dynamic';
 export default async function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission('quotes.read');
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: quote } = await supabase.from('quotes').select('*').eq('id', id).maybeSingle();
+  const db = await createClient();
+  const { data: quote } = await db.from('quotes').select('*').eq('id', id).maybeSingle();
   if (!quote) notFound();
   const [{ data: version }, { data: versions }, { data: customers }, { data: units }, { data: contacts }, { data: equipment }, { data: documents }] =
     await Promise.all([
-      supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle(),
-      supabase.from('quote_versions').select('id, version_number, status, total_cents, created_at').eq('quote_id', id).order('version_number'),
-      supabase.from('customers').select('id, legal_name, email').is('deleted_at', null),
-      supabase.from('customer_units').select('id, customer_id, name').is('deleted_at', null),
-      supabase.from('customer_contacts').select('id, customer_id, name').is('deleted_at', null),
-      supabase.from('equipment').select('*').is('deleted_at', null),
-      supabase.from('documents').select('id, file_name, access_token, created_at').eq('quote_id', id).order('created_at', { ascending: false }),
+      db.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle(),
+      db.from('quote_versions').select('id, version_number, status, total_cents, created_at').eq('quote_id', id).order('version_number'),
+      db.from('customers').select('id, legal_name, email').is('deleted_at', null),
+      db.from('customer_units').select('id, customer_id, name').is('deleted_at', null),
+      db.from('customer_contacts').select('id, customer_id, name').is('deleted_at', null),
+      db.from('equipment').select('*').is('deleted_at', null),
+      db.from('documents').select('id, file_name, access_token, created_at').eq('quote_id', id).order('created_at', { ascending: false }),
     ]);
   const { data: items } = version
-    ? await supabase.from('quote_items').select('*').eq('quote_version_id', version.id).order('sort_order')
+    ? await db.from('quote_items').select('*').eq('quote_version_id', version.id).order('sort_order')
     : { data: [] };
   const previousVersion = (versions ?? []).filter((row) => row.id !== quote.current_version_id).at(-1);
   const { data: previousItems } = previousVersion
-    ? await supabase
+    ? await db
         .from('quote_items')
         .select('description, quantity, subtotal_cents')
         .eq('quote_version_id', previousVersion.id)

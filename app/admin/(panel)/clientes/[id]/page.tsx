@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/auth/session';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { PageHeader } from '@/components/admin/page-header';
 import { CustomerForm } from '@/components/admin/customer-form';
 import { CustomerDeleteButton } from '@/components/admin/customer-delete-button';
@@ -20,16 +20,16 @@ export const dynamic = 'force-dynamic';
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission('customers.read');
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: customer } = await supabase.from('customers').select('*').eq('id', id).is('deleted_at', null).maybeSingle();
+  const db = await createClient();
+  const { data: customer } = await db.from('customers').select('*').eq('id', id).is('deleted_at', null).maybeSingle();
   if (!customer) notFound();
   const [{ data: units }, { data: contacts }, { data: quotes }, { data: contracts }, { data: documents }] =
     await Promise.all([
-      supabase.from('customer_units').select('*').eq('customer_id', id).is('deleted_at', null),
-      supabase.from('customer_contacts').select('*').eq('customer_id', id).is('deleted_at', null),
-      supabase.from('quotes').select('id, number, title, status, quote_versions:current_version_id(total_cents)').eq('customer_id', id).is('deleted_at', null),
-      supabase.from('contracts').select('id, number, object, status, total_cents').eq('customer_id', id).is('deleted_at', null),
-      supabase.from('documents').select('id, file_name, kind, created_at').eq('customer_id', id).is('deleted_at', null),
+      db.from('customer_units').select('*').eq('customer_id', id).is('deleted_at', null),
+      db.from('customer_contacts').select('*').eq('customer_id', id).is('deleted_at', null),
+      db.from('quotes').select('id, number, title, status, quote_versions:current_version_id(total_cents)').eq('customer_id', id).is('deleted_at', null),
+      db.from('contracts').select('id, number, object, status, total_cents').eq('customer_id', id).is('deleted_at', null),
+      db.from('documents').select('id, file_name, kind, created_at').eq('customer_id', id).is('deleted_at', null),
     ]);
 
   return (

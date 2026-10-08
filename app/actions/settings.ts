@@ -4,12 +4,31 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { assertPermission } from '@/lib/auth/session';
 import { COMPANY_SETTINGS_TAG } from '@/lib/data/company';
 import { writeAuditLog } from '@/lib/audit';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { companySettingsSchema } from '@/lib/validations/common';
 import { emptyToNull } from '@/lib/forms';
 import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
 
+const DATABASE_OFFLINE =
+  'Não foi possível conectar ao banco de dados. Confira a conexão MySQL e tente novamente.';
+
+function isConnectionError(message?: string) {
+  return /ENOTFOUND|ECONNREFUSED|ETIMEDOUT|ECONNRESET|PROTOCOL_CONNECTION_LOST|Access denied|timeout/i.test(
+    message ?? '',
+  );
+}
+
 export async function saveCompanySettings(formData: FormData) {
+  try {
+    return await persistCompanySettings(formData);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (isConnectionError(message)) return { error: DATABASE_OFFLINE };
+    return { error: message || 'Não foi possível salvar as configurações.' };
+  }
+}
+
+async function persistCompanySettings(formData: FormData) {
   const user = await assertPermission('settings.write');
   const parsed = companySettingsSchema.safeParse({
     legal_name: formData.get('legal_name'),
@@ -43,7 +62,7 @@ export async function saveCompanySettings(formData: FormData) {
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.' };
 
-  const supabase = await createClient();
+  const db = await createClient();
   const payload: Record<string, unknown> = {
     legal_name: sanitizePlainText(parsed.data.legal_name),
     trade_name: sanitizePlainText(parsed.data.trade_name),
@@ -86,16 +105,18 @@ export async function saveCompanySettings(formData: FormData) {
   const logo = formData.get('logo');
   if (logo instanceof File && logo.size > 0) {
     const path = `logo-${Date.now()}-${logo.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
-    const { error } = await supabase.storage.from('logos').upload(path, logo, { upsert: true });
-    if (error) return { error: 'Falha ao enviar o logo.' };
+    const { error } = await db.storage.from('logos').upload(path, logo, { upsert: true });
+    if (error) return { error: isConnectionError(error.message) ? DATABASE_OFFLINE : 'Falha ao enviar o logo.' };
     payload.logo_path = path;
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('company_settings')
     .update(payload)
     .eq('id', '00000000-0000-0000-0000-000000000001');
-  if (error) return { error: 'Não foi possível salvar as configurações.' };
+  if (error) {
+    return { error: isConnectionError(error.message) ? DATABASE_OFFLINE : 'Não foi possível salvar as configurações.' };
+  }
   await writeAuditLog({ actorId: user.id, action: 'update', entity: 'company_settings' });
   updateTag(COMPANY_SETTINGS_TAG);
   revalidatePath('/admin/configuracoes');
@@ -109,8 +130,8 @@ export async function updateUserRole(formData: FormData) {
   const roleId = String(formData.get('role_id') || '');
   const isActive = formData.get('is_active') === 'on';
   if (!profileId || !roleId) return { error: 'Usuário ou perfil inválido.' };
-  const supabase = await createClient();
-  const { error } = await supabase
+  const db = await createClient();
+  const { error } = await db
     .from('profiles')
     .update({ role_id: roleId, is_active: isActive })
     .eq('id', profileId);

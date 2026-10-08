@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { assertPermission } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/db/server';
 import { customerContactSchema, customerSchema, customerUnitSchema } from '@/lib/validations/common';
 import { emptyToNull } from '@/lib/forms';
 import { sanitizeMultiline, sanitizePlainText } from '@/lib/sanitize';
@@ -47,16 +47,16 @@ export async function saveCustomer(formData: FormData) {
     status: parsed.data.status,
   };
 
-  const supabase = await createClient();
+  const db = await createClient();
   if (id) {
-    const { error } = await supabase.from('customers').update(payload).eq('id', id);
+    const { error } = await db.from('customers').update(payload).eq('id', id);
     if (error) return { error: 'Não foi possível atualizar o cliente.' };
     await writeAuditLog({ actorId: user.id, action: 'update', entity: 'customers', entityId: id });
     revalidatePath('/admin/clientes');
     redirect(`/admin/clientes/${id}`);
   }
 
-  const { data, error } = await supabase.from('customers').insert({ ...payload, created_by: user.id }).select('id').single();
+  const { data, error } = await db.from('customers').insert({ ...payload, created_by: user.id }).select('id').single();
   if (error || !data) return { error: 'Não foi possível cadastrar o cliente. Verifique se o documento já existe.' };
   await writeAuditLog({ actorId: user.id, action: 'create', entity: 'customers', entityId: data.id });
   revalidatePath('/admin/clientes');
@@ -68,12 +68,12 @@ export async function updateCustomerStatus(id: string, status: 'active' | 'inact
   if (!id || (status !== 'active' && status !== 'inactive')) {
     return { error: 'Status inválido.' };
   }
-  const supabase = await createClient();
-  const { data: current } = await supabase.from('customers').select('status').eq('id', id).maybeSingle();
+  const db = await createClient();
+  const { data: current } = await db.from('customers').select('status').eq('id', id).maybeSingle();
   if (!current) return { error: 'Cliente não encontrado.' };
   if (current.status === status) return { ok: true as const };
 
-  const { error } = await supabase.from('customers').update({ status }).eq('id', id);
+  const { error } = await db.from('customers').update({ status }).eq('id', id);
   if (error) return { error: error.message || 'Não foi possível atualizar o status.' };
 
   await writeAuditLog({
@@ -90,8 +90,8 @@ export async function updateCustomerStatus(id: string, status: 'active' | 'inact
 
 export async function softDeleteCustomer(id: string) {
   const user = await assertPermission('customers.delete');
-  const supabase = await createClient();
-  const { error } = await supabase
+  const db = await createClient();
+  const { error } = await db
     .from('customers')
     .update({ deleted_at: new Date().toISOString(), status: 'inactive' })
     .eq('id', id);
@@ -126,10 +126,10 @@ export async function saveCustomerUnit(formData: FormData) {
     email: emptyToNull(parsed.data.email),
   };
 
-  const supabase = await createClient();
+  const db = await createClient();
   const result = id
-    ? await supabase.from('customer_units').update(payload).eq('id', id)
-    : await supabase.from('customer_units').insert(payload);
+    ? await db.from('customer_units').update(payload).eq('id', id)
+    : await db.from('customer_units').insert(payload);
   if (result.error) return { error: 'Não foi possível salvar a unidade.' };
   await writeAuditLog({
     actorId: user.id,
@@ -149,8 +149,8 @@ export async function saveCustomerContact(formData: FormData) {
     is_primary: formData.get('is_primary') === 'on',
   });
   if (!parsed.success || !customerId) return { error: 'Dados do contato inválidos.' };
-  const supabase = await createClient();
-  const { error } = await supabase.from('customer_contacts').insert({
+  const db = await createClient();
+  const { error } = await db.from('customer_contacts').insert({
     customer_id: customerId,
     unit_id: parsed.data.unit_id || null,
     name: sanitizePlainText(parsed.data.name),

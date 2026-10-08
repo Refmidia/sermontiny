@@ -41,7 +41,7 @@ describe('pix br code', () => {
 
   it('formats the visible Pix key', () => {
     expect(formatPixKeyLabel('10750978000124')).toBe('10.750.978/0001-24');
-    expect(formatPixKeyLabel('16.592.847/0001-72')).toBe('16.592.847/0001-72');
+    expect(formatPixKeyLabel('10.750.978/0001-24')).toBe('10.750.978/0001-24');
     expect(formatPixKeyLabel('COMERCIAL@SERMONTINYMONTAGENS.COM.BR')).toBe(
       'comercial@sermontinymontagens.com.br',
     );
