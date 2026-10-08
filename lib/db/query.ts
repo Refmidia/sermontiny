@@ -55,10 +55,11 @@ const FOREIGN_KEYS: Record<string, Record<string, string>> = {
   audit_logs: { actor_id: 'profiles' },
 };
 
-const TABLES_WITHOUT_ID = new Set(['role_permissions', 'storage_objects']);
+const TABLES_WITHOUT_ID = new Set(['role_permissions', 'storage_objects', 'site_services']);
 const JSON_COLUMNS: Record<string, string[]> = {
   company_settings: ['phones'],
   audit_logs: ['metadata'],
+  site_services: ['highlights', 'applications'],
 };
 const PRICE_FIELDS = ['daily_cents', 'monthly_cents', 'hourly_cents', 'km_cents', 'min_hours_per_day'];
 
@@ -97,7 +98,7 @@ function parseJsonColumns(table: string, rows: Row[]) {
       try {
         row[column] = JSON.parse(raw);
       } catch {
-        row[column] = column === 'phones' ? [] : {};
+        row[column] = column === 'metadata' ? {} : [];
       }
     }
   }

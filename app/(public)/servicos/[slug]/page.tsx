@@ -4,9 +4,11 @@ import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { SiteContainer } from '@/components/public/site-container';
 import { SiteImage } from '@/components/public/site-image';
-import { getService, SERVICES } from '@/lib/content/services';
-import { serviceImage } from '@/lib/content/public-media';
+import { SERVICES } from '@/lib/content/services';
+import { getPublicService } from '@/lib/data/services';
 import { SITE, absoluteUrl } from '@/lib/site';
+
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return SERVICES.map((service) => ({ slug: service.slug }));
@@ -18,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const service = getService(slug);
+  const service = await getPublicService(slug);
   if (!service) return {};
   return {
     title: service.title,
@@ -33,9 +35,9 @@ export async function generateMetadata({
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const service = getService(slug);
+  const service = await getPublicService(slug);
   if (!service) notFound();
-  const image = serviceImage(service.slug);
+  const { image } = service;
 
   return (
     <div className="bg-white py-16">

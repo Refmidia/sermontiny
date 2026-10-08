@@ -462,6 +462,24 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   CONSTRAINT audit_logs_actor_fk FOREIGN KEY (actor_id) REFERENCES profiles(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Textos e fotos dos serviços editados pelo painel; o que não estiver aqui usa o padrão do código.
+CREATE TABLE IF NOT EXISTS site_services (
+  slug VARCHAR(120) NOT NULL PRIMARY KEY,
+  title VARCHAR(190) NULL,
+  short_title VARCHAR(120) NULL,
+  summary VARCHAR(500) NULL,
+  description TEXT NULL,
+  highlights TEXT NULL,
+  applications TEXT NULL,
+  image_path VARCHAR(255) NULL,
+  updated_by CHAR(36) NULL,
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE company_settings
+  ADD COLUMN IF NOT EXISTS services_eyebrow VARCHAR(120) NULL,
+  ADD COLUMN IF NOT EXISTS services_title VARCHAR(255) NULL;
+
 -- Arquivos (fotos, logos, PDFs) guardados no próprio banco.
 CREATE TABLE IF NOT EXISTS storage_objects (
   bucket VARCHAR(40) NOT NULL,

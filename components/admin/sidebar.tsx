@@ -7,6 +7,7 @@ import {
   FileSignature,
   Gauge,
   Inbox,
+  LayoutGrid,
   LogOut,
   Settings,
   Truck,
@@ -42,6 +43,7 @@ const GROUPS: NavGroup[] = [
   {
     label: 'Gestão',
     items: [
+      { href: '/admin/servicos', label: 'Serviços do site', icon: LayoutGrid, permission: 'settings.read' },
       { href: '/admin/usuarios', label: 'Usuários', icon: UserCog, permission: 'users.read' },
       { href: '/admin/configuracoes', label: 'Configurações', icon: Settings, permission: 'settings.read' },
     ],

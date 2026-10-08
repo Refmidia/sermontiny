@@ -1,19 +1,17 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { SiteImage } from '@/components/public/site-image';
-import { serviceImage } from '@/lib/content/public-media';
-import type { ServicePage } from '@/lib/content/services';
+import type { ServiceView } from '@/lib/data/services';
 
 export function ServiceCard({
   service,
   index,
   title,
 }: {
-  service: ServicePage;
+  service: ServiceView;
   index?: number;
   title?: string;
 }) {
-  const image = serviceImage(service.slug);
   const heading = title ?? service.shortTitle;
 
   return (
@@ -23,8 +21,8 @@ export function ServiceCard({
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-navy">
         <SiteImage
-          src={image.src}
-          alt={image.alt}
+          src={service.image.src}
+          alt={service.image.alt}
           width={800}
           height={500}
           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"

@@ -2,8 +2,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Pool, RowDataPacket } from 'mysql2/promise';
 import { toDbError, type DbError } from '@/lib/db/query';
 
-export const PUBLIC_BUCKETS = new Set(['logos', 'equipment', 'certificates']);
-const KNOWN_BUCKETS = ['logos', 'equipment', 'certificates', 'documents', 'avatars'];
+export const PUBLIC_BUCKETS = new Set(['logos', 'equipment', 'certificates', 'site']);
+const KNOWN_BUCKETS = ['logos', 'equipment', 'certificates', 'site', 'documents', 'avatars'];
 
 type UploadBody = Blob | ArrayBuffer | ArrayBufferView | Buffer | string;
 type UploadOptions = { contentType?: string; upsert?: boolean; cacheControl?: string };

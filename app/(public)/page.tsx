@@ -22,8 +22,8 @@ import { SiteImage } from '@/components/public/site-image';
 import { SectionHeading } from '@/components/public/section-heading';
 import { PUBLIC_MEDIA } from '@/lib/content/public-media';
 import { featuredFleetCards } from '@/lib/content/home-fleet';
-import { SERVICES } from '@/lib/content/services';
 import { getPublicCompanySettings } from '@/lib/data/company';
+import { getPublicServices } from '@/lib/data/services';
 import { getPublicEquipment } from '@/lib/data/equipment';
 import { equipmentPhotoSrc } from '@/lib/storage-url';
 import { commercialWhatsAppHref } from '@/lib/whatsapp-public';
@@ -41,7 +41,11 @@ const HOME_SERVICES = [
 ] as const;
 
 export default async function HomePage() {
-  const [settings, equipment] = await Promise.all([getPublicCompanySettings(), getPublicEquipment()]);
+  const [settings, equipment, { services, section }] = await Promise.all([
+    getPublicCompanySettings(),
+    getPublicEquipment(),
+    getPublicServices(),
+  ]);
   const fleet = featuredFleetCards(equipment, (item) => equipmentPhotoSrc(item));
   const whatsappHref = commercialWhatsAppHref(settings.whatsapp);
 
@@ -186,8 +190,8 @@ export default async function HomePage() {
       <section className="bg-paper py-20">
         <SiteContainer>
           <SectionHeading
-            eyebrow="Nossos serviços"
-            title="Soluções para operações exigentes."
+            eyebrow={section.eyebrow}
+            title={section.title}
             action={
               <Button asChild variant="outline">
                 <Link href="/servicos">
@@ -199,7 +203,7 @@ export default async function HomePage() {
           />
           <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {HOME_SERVICES.map((slug, index) => {
-              const service = SERVICES.find((item) => item.slug === slug);
+              const service = services.find((item) => item.slug === slug);
               if (!service) return null;
               return <ServiceCard key={service.slug} service={service} index={index} />;
             })}

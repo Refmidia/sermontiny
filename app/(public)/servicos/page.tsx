@@ -3,7 +3,9 @@ import { PageHero } from '@/components/public/page-hero';
 import { ServiceCard } from '@/components/public/service-card';
 import { SiteContainer } from '@/components/public/site-container';
 import { ServiceJsonLd } from '@/components/seo/json-ld';
-import { SERVICES } from '@/lib/content/services';
+import { getPublicServices } from '@/lib/data/services';
+
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'Serviços',
@@ -11,18 +13,19 @@ export const metadata: Metadata = {
     'Montagens industriais, estruturas metálicas, manutenção, reservatórios, instalações e locação de guindastes e muncks.',
 };
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const { services, section } = await getPublicServices();
   return (
     <>
       <ServiceJsonLd />
       <PageHero
-        eyebrow="Nossos serviços"
-        title="Soluções para operações exigentes."
+        eyebrow={section.eyebrow}
+        title={section.title}
         description="Cada serviço possui página própria, com aplicações e critérios de execução."
       />
       <section className="bg-paper py-16">
         <SiteContainer className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {SERVICES.map((service, index) => (
+          {services.map((service, index) => (
             <ServiceCard key={service.slug} service={service} index={index} title={service.title} />
           ))}
         </SiteContainer>
